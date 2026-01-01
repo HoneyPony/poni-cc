@@ -104,3 +104,9 @@ test_simple_expr!(binop_sub, 10, "20 - 10");
 test_simple_expr!(binop_mul, 36, "3 * 12");
 test_simple_expr!(binop_div, 23, "70 / 3");
 test_simple_expr!(binop_mod, 1, "70 % 3");
+
+test_simple_expr!(binop_add_tt, 30, "~~10 + ~~20");
+test_simple_expr!(binop_sub_tt, 10, "~~20 - ~~10");
+test_simple_expr!(binop_mul_tt, 36, "~~3 * ~~12");
+test_simple_expr!(binop_div_tt, 23, "~~70 / ~~3");
+test_simple_expr!(binop_mod_tt, 1, "~~70 % ~~3");
