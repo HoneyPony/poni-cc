@@ -56,6 +56,11 @@ pub enum BinaryOp {
     Multiply  = b'*',
     Divide    = b'/',
     Remainder = b'%',
+    And       = b'&',
+    Or        = b'|',
+    Xor       = b'^',
+    Lshift,
+    Rshift,
 }
 
 impl UnaryOp {

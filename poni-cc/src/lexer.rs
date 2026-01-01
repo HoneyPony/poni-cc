@@ -42,9 +42,20 @@ pub enum TokenType {
     Slash   = b'/',
     Percent = b'%',
     Tilde   = b'~',
-
+    Ampersand = b'&',
+    Pipe      = b'|',
+    Caret     = b'^',
+    Less      = b'<',
+    Greater   = b'>',
+    
     PlusPlus,
     MinusMinus,
+
+    AmpersandAmpersand,
+    PipePipe,
+
+    LessLess,
+    GreaterGreater,
 
     Eof,
 }
@@ -68,8 +79,17 @@ impl TokenType {
             TokenType::Star    => "'*'",
             TokenType::Slash   => "'/'",
             TokenType::Percent => "'%'",
+            TokenType::Ampersand => "'&'",
+            TokenType::Pipe      => "'|'",
+            TokenType::Caret     => "'^'",
+            TokenType::Less      => "'<'",
+            TokenType::Greater   => "'>'",
             TokenType::PlusPlus => "'++'",
             TokenType::MinusMinus => "'--'",
+            TokenType::AmpersandAmpersand => "'&&'",
+            TokenType::PipePipe => "'||'",
+            TokenType::LessLess => "'<<'",
+            TokenType::GreaterGreater => "'>>'",
             TokenType::Eof => "<eof>",
         }
     }
@@ -210,10 +230,20 @@ impl Lexer {
             b'}' => self.token(TokenType::RBrace),
             b';' => self.token(TokenType::Semicolon),
             b'~' => self.token(TokenType::Tilde),
+            b'^' => self.token(TokenType::Caret),
             b'-' => self.choose_match_one(ctx, b'-',
                 TokenType::MinusMinus, TokenType::Minus)?,
             b'+' => self.choose_match_one(ctx, b'+',
                 TokenType::PlusPlus, TokenType::Plus)?,
+            b'&' => self.choose_match_one(ctx, b'&',
+                TokenType::AmpersandAmpersand, TokenType::Ampersand)?,
+            b'|' => self.choose_match_one(ctx, b'|',
+                TokenType::PipePipe, TokenType::Pipe)?,
+            // TODO: Also handle <= and >=
+            b'<' => self.choose_match_one(ctx, b'<',
+                TokenType::LessLess, TokenType::Less)?,
+            b'>' => self.choose_match_one(ctx, b'>',
+                TokenType::GreaterGreater, TokenType::Greater)?,
             b'*' => self.token(TokenType::Star),
             // TODO: Handle comments.
             b'/' => self.token(TokenType::Slash),
