@@ -16,13 +16,34 @@
 //! code from other applications. I'm not sure exactly how that should fit in;
 //! perhaps the Parser calls into something else..?
 
-pub struct Parser {}
+use crate::{ctx::Ctx, lexer::Lexer};
+
+pub struct Parser {
+    lexer: Lexer,
+}
 
 impl Parser {
-    pub fn program(&mut self) {}
-    pub fn function(&mut self) {}
-    pub fn statement(&mut self) {}
-    pub fn expression(&mut self) {}
-    pub fn identifier(&mut self) {}
-    pub fn int(&mut self) {}
+    pub fn program(&mut self, ctx: &mut Ctx) {
+
+    }
+    
+    pub fn function(&mut self, ctx: &mut Ctx) {
+
+    }
+
+    pub fn statement(&mut self, ctx: &mut Ctx) {
+
+    }
+
+    pub fn expression(&mut self, ctx: &mut Ctx) {
+
+    }
+
+    pub fn identifier(&mut self, ctx: &mut Ctx) {
+
+    }
+
+    pub fn int(&mut self, ctx: &mut Ctx) {
+
+    }
 }

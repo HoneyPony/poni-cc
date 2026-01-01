@@ -1,5 +1,7 @@
 use std::{io::Write, io::Read};
 
+mod ctx;
+mod lexer;
 mod parser;
 
 // Backend architectures:

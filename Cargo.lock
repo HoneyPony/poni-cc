@@ -32,8 +32,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a464143cc82dedcdc3928737445362466b7674b5db4e2eb8e869846d6d84f4f6"
 
 [[package]]
+name = "poni-arena"
+version = "0.1.0"
+source = "git+https://github.com/HoneyPony/poniescript#cf9beb72474f9a68c372d09d2e82cb98f4651062"
+
+[[package]]
 name = "poni-cc"
 version = "0.1.0"
+dependencies = [
+ "poni-arena",
+]
 
 [[package]]
 name = "poni-cc-cli"
