@@ -65,6 +65,10 @@ impl Function {
         cwriteln!(output, ".globl {}", ctx.get(self.name));
         cwriteln!(output, "{}:", ctx.get(self.name));
 
+        for instr in &self.instructions {
+            instr.write_as_text(ctx, output)?;
+        }
+
         Ok(())
     }
 }
@@ -74,6 +78,7 @@ impl Instr {
         output.write_all(str)?;
 
         a.write_as_text(ctx, output)?;
+        output.write_all(b",\t")?;
         b.write_as_text(ctx, output)?;
         output.write_all(b"\n")?;
 

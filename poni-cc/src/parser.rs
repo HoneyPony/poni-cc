@@ -82,7 +82,7 @@ impl Parser {
         // TODO: We probably want to make the ident.str just a property of
         // e.g. TokenType::Identifier, so that we don't have to call .unwrap()
         // here.
-        x86_64::Function { name: ident.str.unwrap(), instructions: vec![] }
+        x86_64::Function { name: ident.str.unwrap(), instructions }
     }
 
     pub fn statement(&mut self, ctx: &mut Ctx, into: &mut Vec<x86_64::Instr>) {
