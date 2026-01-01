@@ -55,7 +55,7 @@ macro_rules! test {
     ($name:ident, $exit_code:expr, $c_src:expr) => {
         #[test]
         fn $name() {
-            test_driver(true, stringify!($ident), $c_src, $exit_code);
+            test_driver(true, stringify!($name), $c_src, $exit_code);
         }
     }
 }
@@ -64,7 +64,7 @@ macro_rules! test_no_cpp {
     ($name:ident, $exit_code:expr, $c_src:expr) => {
         #[test]
         fn $name() {
-            test_driver(false, stringify!($ident), $c_src, $exit_code);
+            test_driver(false, stringify!($name), $c_src, $exit_code);
         }
     }
 }
