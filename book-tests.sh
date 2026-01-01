@@ -1,0 +1,1 @@
+./writing-a-c-compiler-tests/test_compiler ./ponicc-driver.sh "$@"
