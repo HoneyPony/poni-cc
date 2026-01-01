@@ -90,6 +90,25 @@ impl Function {
 
         Ok(())
     }
+
+    /// Passes over all the instructions in this Function, and applies the
+    /// given 'fun' to every Operand.
+    /// 
+    /// Used to implement psuedoregister replacement AND instruction fixup.
+    pub fn operand_pass<F: FnMut(&mut Operand)>(&mut self, mut fun: F) {
+        for instr in &mut self.instructions {
+            match instr {
+                Instr::Ret => {},
+                Instr::Unary { operand, .. } => {
+                    fun(operand);
+                },
+                Instr::Mov { src, dst } => {
+                    fun(src);
+                    fun(dst);
+                },
+            }
+        }
+    }
 }
 
 impl Instr {
@@ -165,8 +184,8 @@ pub fn replace_psuedoregister_pass(fun: &mut Function) {
     // could use that same array, which would probably be much faster than
     // a HashMap.
     let mut map: HashMap<StrId, i32> = HashMap::new();
-
-    let mut handle_op = |op: &mut Operand| {
+    
+    fun.operand_pass(|op: &mut Operand| {
         match op {
             Operand::Psuedo(str_id) => {
                 let offset = map.entry(*str_id)
@@ -179,21 +198,5 @@ pub fn replace_psuedoregister_pass(fun: &mut Function) {
             },
             _ => {}
         }
-    };
-
-    // TODO: It might be nice to implement an iterator or something
-    // that would let us quickly step over every *operand* in the Function,
-    // so we don't have to e.g. keep writing the same match statement.
-    for instr in &mut fun.instructions {
-        match instr {
-            Instr::Ret => {},
-            Instr::Unary { op, operand } => {
-                handle_op(operand);
-            },
-            Instr::Mov { src, dst } => {
-                handle_op(src);
-                handle_op(dst);
-            },
-        }
-    }
+    });
 }
