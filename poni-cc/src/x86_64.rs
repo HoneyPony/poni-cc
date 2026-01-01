@@ -125,7 +125,7 @@ impl Instr {
         output.write_all(str)?;
 
         a.write_as_text(ctx, output)?;
-        output.write_all(b",\t")?;
+        output.write_all(b", ")?;
         b.write_as_text(ctx, output)?;
         output.write_all(b"\n")?;
 
@@ -149,11 +149,11 @@ impl Instr {
                 cwriteln!(output, "\tpopq\t%rbp");
                 output.write_all(b"\tret\n")?;
             }
-            Instr::Mov { src, dst } => { Self::two_ops(ctx, output, b"\tmovl ", src, dst)?; }
+            Instr::Mov { src, dst } => { Self::two_ops(ctx, output, b"\tmovl\t", src, dst)?; }
             Instr::Unary { op, operand } => {
                 let opstr = match op {
-                    UnaryOp::Complement => b"\tnotl ",
-                    UnaryOp::Negate => b"\tnegl ",
+                    UnaryOp::Complement => b"\tnotl\t",
+                    UnaryOp::Negate => b"\tnegl\t",
                 };
                 Self::one_op(ctx, output, opstr, operand)?;
             }
