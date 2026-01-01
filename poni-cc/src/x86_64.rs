@@ -100,6 +100,7 @@ impl Operand {
         match self {
             Operand::Reg(register) => output.write_all(register.as_asm()),
             Operand::Imm(str_id) => {
+                output.write_all(b"$")?;
                 output.write_all(ctx.get(*str_id).as_bytes())
             },
         }
