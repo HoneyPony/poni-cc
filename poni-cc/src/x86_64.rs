@@ -137,11 +137,11 @@ impl Instr {
     pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
         match self {
             Instr::Ret => { output.write_all(b"\tret\n")?; }
-            Instr::Mov { src, dst } => { Self::two_ops(ctx, output, b"\tmov ", src, dst)?; }
+            Instr::Mov { src, dst } => { Self::two_ops(ctx, output, b"\tmovl ", src, dst)?; }
             Instr::Unary { op, operand } => {
                 let opstr = match op {
-                    UnaryOp::Complement => b"\tnot ",
-                    UnaryOp::Negate => b"\tneg ",
+                    UnaryOp::Complement => b"\tnotl ",
+                    UnaryOp::Negate => b"\tnegl ",
                 };
                 Self::one_op(ctx, output, opstr, operand)?;
             }
