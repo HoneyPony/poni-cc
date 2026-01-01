@@ -1,5 +1,7 @@
 use std::{io::Write, io::Read};
 
+mod parser;
+
 // Backend architectures:
 // We will likely (?) not support more than one, but I guess we'll see.
 // (WASM when?)
