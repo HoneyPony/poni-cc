@@ -94,11 +94,41 @@ impl Parser {
     }
 
     pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
-        let value = self.expect(ctx, TokenType::Constant);
-        // Same thing as above
-        //
-        // Also, TODO: Validate that this StrId is a valid integer constant,
-        // and/or convert it if necessary.
-        Val::Constant(value.str.unwrap())
+        match self.next_token.typ {
+            TokenType::Constant => {
+                let value = self.advance(ctx);
+                // Same thing as above (we should delete the unwrap...)
+                //
+                // Also, TODO: Validate that this StrId is a valid integer constant,
+                // and/or convert it if necessary.
+                Val::Constant(value.str.unwrap())
+            },
+            // Unary operators
+            op @ (TokenType::Tilde | TokenType::Minus) => {
+                self.advance(ctx);
+
+                // src must be evaluated first
+                let src = self.expression(ctx, into);
+
+                // NOTE: There's actually no real reason to use a new tmp
+                // here? We should probably just overwrite the src variable.
+                let dst = ctx.tmp();
+                let op = UnaryOp::from(op);
+                into.push(Instr::Unary { op, src, dst });
+
+                dst
+            },
+            TokenType::LParen => {
+                self.advance(ctx);
+
+                let result = self.expression(ctx, into);
+
+                self.expect(ctx, TokenType::RParen);
+                result
+            }
+            _ => {
+                panic!("expected expression");
+            }
+        }
     }
 }

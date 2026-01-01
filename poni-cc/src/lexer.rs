@@ -36,6 +36,11 @@ pub enum TokenType {
 
     Semicolon = b';',
 
+    Tilde = b'~',
+    Minus = b'-',
+
+    MinusMinus,
+
     Eof,
 }
 
@@ -52,6 +57,9 @@ impl TokenType {
             TokenType::LBrace => "'{'",
             TokenType::RBrace => "'}'",
             TokenType::Semicolon => "';'",
+            TokenType::Tilde => "'~'",
+            TokenType::Minus => "'-'",
+            TokenType::MinusMinus => "'--'",
             TokenType::Eof => "<eof>",
         }
     }
@@ -102,6 +110,16 @@ impl Lexer {
         self.next_byte = buf[0];
 
         Ok(result)
+    }
+
+    // TODO: If we just used the panic hook idea, there would be no need fore
+    // std::io::Result here, which would actually be very nice.
+    fn match_(&mut self, ctx: &mut Ctx, expected_byte: u8) -> std::io::Result<bool> {
+        if self.next_byte == expected_byte {
+            self.advance()?;
+            return Ok(true);
+        }
+        return Ok(false)
     }
 
     #[inline(always)]
@@ -171,6 +189,15 @@ impl Lexer {
             b'{' => self.token(TokenType::LBrace),
             b'}' => self.token(TokenType::RBrace),
             b';' => self.token(TokenType::Semicolon),
+            b'~' => self.token(TokenType::Tilde),
+            b'-' => {
+                if self.match_(ctx, b'-')? {
+                    self.token(TokenType::MinusMinus)
+                }
+                else {
+                    self.token(TokenType::Minus)
+                }
+            }
 
             _ => {
                 if self.at_eof {
