@@ -98,3 +98,9 @@ test_simple_expr!(unop_minus, -45, "-45");
 test_simple_expr!(unop_tilde, -1, "~0");
 test_simple_expr!(unop_minus_minus, 45, "- -45");
 test_simple_expr!(unop_tilde_minus, 3, "~-4");
+
+test_simple_expr!(binop_add, 30, "10 + 20");
+test_simple_expr!(binop_sub, 10, "20 - 10");
+test_simple_expr!(binop_mul, 36, "3 * 12");
+test_simple_expr!(binop_div, 23, "70 / 3");
+test_simple_expr!(binop_mod, 1, "70 % 3");
