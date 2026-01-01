@@ -35,6 +35,8 @@ pub enum TokenType {
     LBrace = b'{', RBrace = b'}',
 
     Semicolon = b';',
+
+    Eof,
 }
 
 impl TokenType {
@@ -50,6 +52,7 @@ impl TokenType {
             TokenType::LBrace => "'{'",
             TokenType::RBrace => "'}'",
             TokenType::Semicolon => "';'",
+            TokenType::Eof => "<eof>",
         }
     }
 }
@@ -67,6 +70,26 @@ pub struct Token {
 }
 
 impl Lexer {
+    pub fn new(input: Box<dyn Read>, ctx: &mut Ctx) -> Self {
+        Lexer {
+            next_byte: b' ',
+            at_eof: false,
+
+            input,
+
+            next_buf: Vec::new(),
+            keyword_map: vec![
+                // TODO: Optimization: When we're looking at an identifier,
+                // if it is greater than the last keyword StrId, then we
+                // know it can't be any keyword and can skip the rest of the
+                // search.
+                (ctx.put_str(b"int"), TokenType::Int),
+                (ctx.put_str(b"void"), TokenType::Void),
+                (ctx.put_str(b"return"), TokenType::Return),
+            ]
+        }
+    }
+
     fn advance(&mut self) -> std::io::Result<u8> {
         let result = self.next_byte;
         self.next_buf.push(result);
@@ -76,6 +99,7 @@ impl Lexer {
             0 => self.at_eof = true,
             _ => {}
         }
+        self.next_byte = buf[0];
 
         Ok(result)
     }
@@ -149,6 +173,9 @@ impl Lexer {
             b';' => self.token(TokenType::Semicolon),
 
             _ => {
+                if self.at_eof {
+                    return Ok(self.token(TokenType::Eof));
+                }
                 // TODO: Honestly, panicking is likely the fastest way to
                 // handle ALL the errors? Maybe we can set up a panic hook
                 // and then eschew most other error handling?

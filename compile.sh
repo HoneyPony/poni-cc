@@ -7,6 +7,8 @@ fname="$(basename $1)"
 fname="${fname%.c}"
 out="testing-ground"
 
+set -e
+
 # preprocess
 gcc -E -P "$1" -o "$out/$fname.i"
 

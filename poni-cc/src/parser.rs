@@ -16,7 +16,9 @@
 //! code from other applications. I'm not sure exactly how that should fit in;
 //! perhaps the Parser calls into something else..?
 
-use crate::{ctx::Ctx, lexer::{Lexer, Token, TokenType}};
+use std::io::Read;
+
+use crate::{ctx::Ctx, lexer::{Lexer, Token, TokenType}, x86_64};
 
 pub struct Parser {
     next_token: Token,
@@ -24,6 +26,17 @@ pub struct Parser {
 }
 
 impl Parser {
+    pub fn new(input: Box<dyn Read>, ctx: &mut Ctx) -> Self {
+        let mut result = Parser {
+            next_token: Token { typ: TokenType::Eof, str: None },
+            lexer: Lexer::new(input, ctx)
+        };
+
+        // Prime the parser so it has a legit token.
+        result.advance(ctx);
+        result
+    }
+
     fn advance(&mut self, ctx: &mut Ctx) -> Token {
         let result = self.next_token;
         self.next_token = self.lexer.next(ctx).unwrap();
@@ -38,32 +51,56 @@ impl Parser {
         self.advance(ctx)
     }
 
-    pub fn program(&mut self, ctx: &mut Ctx) {
-        self.function(ctx);
+    pub fn program(&mut self, ctx: &mut Ctx) -> x86_64::Program {
+        let mut p = x86_64::Program {
+            functions: Vec::new(),
+        };
+
+        p.functions.push(self.function(ctx));
+        
+        self.expect(ctx, TokenType::Eof);
+
+        // TODO: We'll probably want to codegen functions as we go, not
+        // push them all to a thing first.
+        p
     }
 
-    pub fn function(&mut self, ctx: &mut Ctx) {
+    pub fn function(&mut self, ctx: &mut Ctx) -> x86_64::Function {
+        let mut instructions: Vec<x86_64::Instr> = Vec::new();
+
         self.expect(ctx, TokenType::Int);
-        self.expect(ctx, TokenType::Identifier);
+        let ident = self.expect(ctx, TokenType::Identifier);
         self.expect(ctx, TokenType::LParen);
         self.expect(ctx, TokenType::Void);
         self.expect(ctx, TokenType::RParen);
         self.expect(ctx, TokenType::LBrace);
 
-        let inner = self.statement(ctx);
+        let inner = self.statement(ctx, &mut instructions);
 
         self.expect(ctx, TokenType::RBrace);
+
+        // TODO: We probably want to make the ident.str just a property of
+        // e.g. TokenType::Identifier, so that we don't have to call .unwrap()
+        // here.
+        x86_64::Function { name: ident.str.unwrap(), instructions: vec![] }
     }
 
-    pub fn statement(&mut self, ctx: &mut Ctx) {
+    pub fn statement(&mut self, ctx: &mut Ctx, into: &mut Vec<x86_64::Instr>) {
         self.expect(ctx, TokenType::Return);
-        let return_val = self.expression(ctx);
+        let return_val = self.expression(ctx, into);
         self.expect(ctx, TokenType::Semicolon);
 
+        // Generate the code for return
+        into.push(x86_64::Instr::Mov { dst: x86_64::Operand::Reg(x86_64::Register::Eax), src: return_val });
+        into.push(x86_64::Instr::Ret);
     }
 
-    pub fn expression(&mut self, ctx: &mut Ctx) {
+    pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<x86_64::Instr>) -> x86_64::Operand {
         let value = self.expect(ctx, TokenType::Constant);
-
+        // Same thing as above
+        //
+        // Also, TODO: Validate that this StrId is a valid integer constant,
+        // and/or convert it if necessary.
+        x86_64::Operand::Imm(value.str.unwrap())
     }
 }
