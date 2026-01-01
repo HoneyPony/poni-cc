@@ -26,6 +26,12 @@ fn preprocess(use_cpp: bool, input: &[u8]) -> Vec<u8> {
 fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) {
     let output = preprocess(use_cpp, input);
 
+    // We expect the exit code to be truncated.
+    // Perhaps a more principled way of testing this would be to run an existing
+    // C compiler on the same source and compare the return codes.
+    let expected_ret = expected_ret as u8;
+    let expected_ret = expected_ret as i32;
+
     let output_path = Path::new("../testing-ground").join(test_name);
     
     let mut asm = Command::new("gcc")
@@ -48,7 +54,7 @@ fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) 
     let exit = tester.wait().unwrap();
     let code = exit.code().unwrap();
 
-    assert!(code == expected_ret);
+    assert_eq!(code, expected_ret);
 }
 
 macro_rules! test {
@@ -69,6 +75,16 @@ macro_rules! test_no_cpp {
     }
 }
 
+macro_rules! test_simple_expr {
+    ($name:ident, $exit_code:expr, $c_src:expr) => {
+        #[test]
+        fn $name() {
+            const C_SRC: &str = concat!("int main(void) { return ", $c_src, "; }");
+            test_driver(false, stringify!($name), C_SRC.as_bytes(), $exit_code);
+        }
+    }
+}
+
 test!(simple_cpp, 145,
 br"#define MY_VAL 145
 int main(void) {
@@ -77,3 +93,8 @@ int main(void) {
 ");
 
 test_no_cpp!(simple, 123, b"int main(void) { return 123; }");
+
+test_simple_expr!(unop_minus, -45, "-45");
+test_simple_expr!(unop_tilde, -1, "~0");
+test_simple_expr!(unop_minus_minus, 45, "- -45");
+test_simple_expr!(unop_tilde_minus, 3, "~-4");
