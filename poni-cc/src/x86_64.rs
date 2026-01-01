@@ -2,7 +2,7 @@
 
 use std::io::Write;
 
-use crate::ctx::{Ctx, StrId};
+use crate::{ctx::{Ctx, StrId}, ir::UnaryOp};
 
 pub mod lowering;
 pub use lowering::lower_function;
@@ -18,7 +18,10 @@ pub struct Function {
 
 pub enum Instr {
     Ret,
-    Mov { src: Operand, dst: Operand }
+    // Note: I'm not sure the cleanest way to represent these.
+    // It seems unnecessary to add YET ANOTHER enum for the same '~', '-' etc.
+    Unary { op: UnaryOp, operand: Operand },
+    Mov { src: Operand, dst: Operand },
 }
 
 pub enum Operand {
@@ -94,10 +97,26 @@ impl Instr {
         Ok(())
     }
 
+    fn one_op(ctx: &Ctx, output: &mut Box<dyn Write>, str: &'static [u8], a: &Operand) -> std::io::Result<()> {
+        output.write_all(str)?;
+
+        a.write_as_text(ctx, output)?;
+        output.write_all(b",\t")?;
+
+        Ok(())
+    }
+
     pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
         match self {
             Instr::Ret => { output.write_all(b"\tret\n")?; }
-            Instr::Mov { src, dst } => Self::two_ops(ctx, output, b"\tmov ", src, dst)?
+            Instr::Mov { src, dst } => { Self::two_ops(ctx, output, b"\tmov ", src, dst)?; }
+            Instr::Unary { op, operand } => {
+                let opstr = match op {
+                    UnaryOp::Complement => b"\tnot ",
+                    UnaryOp::Negate => b"\tneg ",
+                };
+                Self::one_op(ctx, output, opstr, operand)?;
+            }
         }
 
         Ok(())

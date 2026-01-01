@@ -15,7 +15,14 @@ fn lower(instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
             out.push(Instr::Mov { dst: Register::Eax.into(), src: lower_val(val) });
             out.push(Instr::Ret);
         },
-        ir::Instr::Unary { op, src, dst } => todo!(),
+        ir::Instr::Unary { op, src, dst } => {
+            // TODO: This is very wasteful.
+            // Instead,the Unary should just have a single Val, and we just
+            // directly generate the Unary op for that Val. That would be much
+            // better.
+            out.push(Instr::Mov { src: lower_val(src), dst: lower_val(dst) });
+            out.push(Instr::Unary { op: *op, operand: lower_val(dst) })
+        },
     }
 }
 
