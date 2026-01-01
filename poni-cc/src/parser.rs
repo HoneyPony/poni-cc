@@ -141,7 +141,7 @@ impl Parser {
             let rhs = self.climb_precedence(ctx, into, prec + 1);
             let dst = ctx.tmp();
 
-            into.push(Instr::Binary { op, dst, src1: lhs, src2: rhs });
+            into.push(Instr::Binary { op, dst, lhs, rhs });
             lhs = dst.into();
         }
 

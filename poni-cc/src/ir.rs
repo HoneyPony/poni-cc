@@ -17,8 +17,8 @@ pub enum Instr {
     Binary {
         op: BinaryOp,
         dst: Var,
-        src1: Val,
-        src2: Val,
+        lhs: Val,
+        rhs: Val,
     },
     Copy {
         src: Val,
@@ -91,7 +91,7 @@ impl BinaryOp {
             TokenType::Caret          => BinaryOp::Xor,
             TokenType::LessLess       => BinaryOp::Lshift,
             TokenType::GreaterGreater => BinaryOp::Rshift,
-            
+
             // TODO: ice! macro maybe? So that we can distinguish certain
             // panics from the possible panic-hook idea?
             _ => panic!("ICE: Bad BinaryOp conversion")

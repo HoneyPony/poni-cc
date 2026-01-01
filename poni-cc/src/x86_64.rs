@@ -26,8 +26,11 @@ pub enum Instr {
     // x86 sure is not three address code.
     Binary { op: BinaryOp, dst: Operand, src: Operand },
     Cdq,
-    Idiv { dst: Operand },
+    Idiv { rhs: Operand },
     Mov { src: Operand, dst: Operand },
+
+    // Shifts by ecx into the dst.
+    Shift { op: BinaryOp, dst: Operand },
 }
 
 #[derive(Clone, Copy)]
@@ -45,6 +48,7 @@ pub enum Operand {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Register {
     Eax,
+    Ecx,
     Edx,
     R10d,
     R11d,
@@ -60,6 +64,7 @@ impl Register {
     pub fn as_asm(&self) -> &'static [u8] {
         match self {
             Register::Eax => b"%eax",
+            Register::Ecx => b"%ecx",
             Register::Edx => b"%edx",
             Register::R10d => b"%r10d",
             Register::R11d => b"%r11d",
@@ -130,8 +135,11 @@ impl Function {
                     fun(dst);
                 },
                 Instr::Cdq => {},
-                Instr::Idiv { dst } => {
+                Instr::Idiv { rhs: dst } => {
                     fun(dst);
+                }
+                Instr::Shift { dst, .. } => {
+                    fun(dst)
                 }
             }
         }
@@ -183,11 +191,7 @@ impl Instr {
                     BinaryOp::And => b"\tandl\t",
                     BinaryOp::Or => b"\torl\t",
                     BinaryOp::Xor => b"\txorl\t",
-                    BinaryOp::Lshift => b"\tshll\t",
-                    // For now, because we are using essentially 'int', we
-                    // should be using an arithmetic left shift. This will have
-                    // to change for unsigned values.
-                    BinaryOp::Rshift => b"\tsarl\t",
+                    BinaryOp::Lshift | BinaryOp::Rshift => panic!(),
                     _ => panic!("Bad binary operator"),
                 };
                 Self::two_ops(ctx, output, opstr, src, dst)?;
@@ -195,8 +199,24 @@ impl Instr {
             Instr::Cdq => {
                 output.write_all(b"\tcdq\n")?;
             }
-            Instr::Idiv { dst } => {
+            Instr::Idiv { rhs: dst } => {
                 Self::one_op(ctx, output, b"\tidivl\t", dst)?;
+            }
+            Instr::Shift { op, dst } => {
+                let opstr: &[u8] = match op {
+                    BinaryOp::Lshift => b"\tshll\t",
+                    // For now, because we are using essentially 'int', we
+                    // should be using an arithmetic left shift. This will have
+                    // to change for unsigned values.
+                    BinaryOp::Rshift => b"\tsarl\t",
+                    _ => panic!()
+                };
+
+                output.write_all(opstr)?;
+                // For now, we are always shifting by cl.
+                output.write_all(b"%cl, ")?;
+                dst.write_as_text(ctx, output)?;
+                output.write_all(b"\n");
             }
         }
 
@@ -288,9 +308,9 @@ pub fn fixup_pass(fun: &mut Function) {
             }
 
             // Fixup idiv <imm> so that the value is instead in a register.
-            Instr::Idiv { dst: dst @ Operand::Imm(_) } => {
+            Instr::Idiv { rhs: dst @ Operand::Imm(_) } => {
                 new_instrs.push(Instr::Mov { src: dst, dst: Register::R10d.into() });
-                new_instrs.push(Instr::Idiv { dst: Register::R10d.into() });
+                new_instrs.push(Instr::Idiv { rhs: Register::R10d.into() });
             }
             instr @ _ => {
                 new_instrs.push(instr);
