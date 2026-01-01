@@ -38,6 +38,7 @@ pub enum Operand {
 
 pub enum Register {
     Eax,
+    R10d,
 }
 
 impl From<Register> for Operand {
@@ -50,6 +51,7 @@ impl Register {
     pub fn as_asm(&self) -> &'static [u8] {
         match self {
             Register::Eax => b"%eax",
+            Register::R10d => b"%r10d",
         }
     }
 }
@@ -184,7 +186,7 @@ pub fn replace_psuedoregister_pass(fun: &mut Function) {
     // could use that same array, which would probably be much faster than
     // a HashMap.
     let mut map: HashMap<StrId, i32> = HashMap::new();
-    
+
     fun.operand_pass(|op: &mut Operand| {
         match op {
             Operand::Psuedo(str_id) => {
@@ -199,4 +201,28 @@ pub fn replace_psuedoregister_pass(fun: &mut Function) {
             _ => {}
         }
     });
+}
+
+pub fn fixup_pass(fun: &mut Function) {
+    // I'm not actually sure how to do this in an efficient way. The book
+    // suggests inserting new instructions, which is awkward in a Vec.
+    //
+    // For now, we construct an entirely new Vec. :shrug:.
+    let mut new_instrs = Vec::with_capacity(fun.instructions.len());
+    let old = std::mem::take(&mut fun.instructions);
+
+    for instr in old {
+        match instr {
+            // Fixup memory-memory mov with a new instruction
+            Instr::Mov { src: s1 @ Operand::Stack(_), dst: s2 @ Operand::Stack(_) } => {
+                new_instrs.push(Instr::Mov { src: s1, dst: Register::R10d.into() });
+                new_instrs.push(Instr::Mov { src: Register::R10d.into(), dst: s2 });
+            },
+            instr @ _ => {
+                new_instrs.push(instr);
+            }
+        }
+    }
+
+    fun.instructions = new_instrs;
 }

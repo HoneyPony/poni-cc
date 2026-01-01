@@ -23,6 +23,7 @@ pub fn compile(input: Box<dyn Read>, mut output: Box<dyn Write>) -> std::io::Res
     for fun in &ir_funs {
         let mut fun = x86_64::lower_function(fun);
         x86_64::replace_psuedoregister_pass(&mut fun);
+        x86_64::fixup_pass(&mut fun);
         x86_funs.push(fun);
     }
 
