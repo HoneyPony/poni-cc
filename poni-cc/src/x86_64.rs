@@ -1,6 +1,6 @@
 //! Backend for x86_64. The main goal is for it to work on my computer.
 
-use std::io::Write;
+use std::{collections::HashMap, io::Write};
 
 use crate::{ctx::{Ctx, StrId}, ir::UnaryOp};
 
@@ -146,10 +146,54 @@ impl Operand {
                 cwrite!(output, "<psuedoreg {}>", str_id.to_index());
             }
             Operand::Stack(offset) => {
-                cwrite!(output, "({})%rbp", offset)
+                cwrite!(output, "{}(%rbp)", offset)
             }
         }
 
         Ok(())
+    }
+}
+
+pub fn replace_psuedoregister_pass(fun: &mut Function) {
+    let mut offset = 0;
+
+    // This map maps variables/psuedoregisters to their stack offset.
+    // However, I feel like maybe we want to do this in a different way.
+    //
+    // In particular, if each Function had its *own* map of variables, it
+    // could be a flat array indexed from 0. Then, doing this kind of pass
+    // could use that same array, which would probably be much faster than
+    // a HashMap.
+    let mut map: HashMap<StrId, i32> = HashMap::new();
+
+    let mut handle_op = |op: &mut Operand| {
+        match op {
+            Operand::Psuedo(str_id) => {
+                let offset = map.entry(*str_id)
+                    .or_insert_with(|| {
+                        let x = offset;
+                        offset -= 4;
+                        x
+                    });
+                *op = Operand::Stack(*offset);
+            },
+            _ => {}
+        }
+    };
+
+    // TODO: It might be nice to implement an iterator or something
+    // that would let us quickly step over every *operand* in the Function,
+    // so we don't have to e.g. keep writing the same match statement.
+    for instr in &mut fun.instructions {
+        match instr {
+            Instr::Ret => {},
+            Instr::Unary { op, operand } => {
+                handle_op(operand);
+            },
+            Instr::Mov { src, dst } => {
+                handle_op(src);
+                handle_op(dst);
+            },
+        }
     }
 }

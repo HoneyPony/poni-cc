@@ -21,7 +21,9 @@ pub fn compile(input: Box<dyn Read>, mut output: Box<dyn Write>) -> std::io::Res
     let ir_funs = parser.program(&mut ctx);
     let mut x86_funs = Vec::new();
     for fun in &ir_funs {
-        x86_funs.push(x86_64::lower_function(fun));
+        let mut fun = x86_64::lower_function(fun);
+        x86_64::replace_psuedoregister_pass(&mut fun);
+        x86_funs.push(fun);
     }
 
     // TODO: Get rid of 'Program' thing, seems unnecessary? Idk
