@@ -108,13 +108,24 @@ impl Parser {
     }
 
     pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
+        self.climb_precedence(ctx, into, 0)
+    }
+
+    fn next_token_precedence(&self) -> Option<i32> {
+        match self.next_token.typ {
+            TokenType::Plus | TokenType::Minus => Some(45),
+            TokenType::Star | TokenType::Slash | TokenType::Percent => Some(50),
+            _ => None
+        }
+    }
+
+    pub fn climb_precedence(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>, min_prec: i32) -> Val {
         let mut lhs = self.factor(ctx, into);
 
-        // TODO: Implement precedence.
-        while matches!(self.next_token.typ, TokenType::Plus | TokenType::Minus | TokenType::Star | TokenType::Slash | TokenType::Percent) {
+        while let Some(prec) = self.next_token_precedence() && prec >= min_prec {
             let op = self.advance(ctx);
             let op = BinaryOp::from(op.typ);
-            let rhs = self.factor(ctx, into);
+            let rhs = self.climb_precedence(ctx, into, prec + 1);
             let dst = ctx.tmp();
 
             into.push(Instr::Binary { op, dst, src1: lhs, src2: rhs });

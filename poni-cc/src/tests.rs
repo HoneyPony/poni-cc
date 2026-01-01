@@ -110,3 +110,30 @@ test_simple_expr!(binop_sub_tt, 10, "~~20 - ~~10");
 test_simple_expr!(binop_mul_tt, 36, "~~3 * ~~12");
 test_simple_expr!(binop_div_tt, 23, "~~70 / ~~3");
 test_simple_expr!(binop_mod_tt, 1, "~~70 % ~~3");
+
+test_simple_expr!(binop_prec1, 11, "1 + 2 * 3 + 4");
+test_simple_expr!(binop_prec2, -21, "7 - 5 * 4 - 8");
+test_simple_expr!(binop_prec3, 9, "1 + 60 / 3 - 12");
+test_simple_expr!(binop_prec4, 42, "1 - 61 % 3 + 42");
+
+test_simple_expr!(binop_prec1_paren, 21, "(1 + 2) * (3 + 4)");
+test_simple_expr!(binop_prec2_paren, -8, "(7 - 5) * (4 - 8)");
+test_simple_expr!(binop_prec3_paren, -6, "(1 + 60) / (3 - 12)");
+test_simple_expr!(binop_prec4_paren, -15, "(1 - 61) % (3 + 42)");
+
+test_simple_expr!(binop_many_ints, 150, r"
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
+1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1");
