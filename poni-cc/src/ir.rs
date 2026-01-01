@@ -9,16 +9,27 @@ pub enum Instr {
     Return(Val),
     Unary {
         op: UnaryOp,
+        dst: Var,
+    },
+    Copy {
         src: Val,
-        dst: Val,
-    }
+        dst: Var,
+    },
 }
+
+pub type Var = StrId;
 
 #[derive(Clone, Copy)]
 pub enum Val {
     // TODO: Probably integers? IDK
     Constant(StrId),
-    Var(StrId),
+    Var(Var),
+}
+
+impl From<Var> for Val {
+    fn from(value: Var) -> Self {
+        Val::Var(value)
+    }
 }
 
 #[repr(u8)]

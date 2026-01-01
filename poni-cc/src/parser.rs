@@ -52,6 +52,20 @@ impl Parser {
         self.advance(ctx)
     }
 
+    fn promote_to_var(val: Val, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Var {
+        match val {
+            Val::Constant(_) => {
+                let var = ctx.tmp();
+                into.push(Instr::Copy { src: val, dst: var.into() });
+                var
+
+            },
+            Val::Var(str_id) => {
+                str_id
+            },
+        }
+    }
+
     pub fn program(&mut self, ctx: &mut Ctx) -> Vec<Function> {
         let mut result = Vec::new();
 
@@ -107,9 +121,6 @@ impl Parser {
             op @ (TokenType::Tilde | TokenType::Minus) => {
                 self.advance(ctx);
 
-                // src must be evaluated first
-                let src = self.expression(ctx, into);
-
                 // NOTE: There's actually no real reason to use a new tmp
                 // here? We should probably just overwrite the src variable.
                 //
@@ -135,11 +146,15 @@ impl Parser {
                 // there with the evaluated value. E.g. have something like
                 // re-evaluate-this-constant-please. IDK. It's not exactly
                 // clear).
-                let dst = ctx.tmp();
-                let op = UnaryOp::from(op);
-                into.push(Instr::Unary { op, src, dst });
 
-                dst
+                // src must be evaluated first
+                let src = self.expression(ctx, into);
+
+                let dst = Self::promote_to_var(src, ctx, into);
+                let op = UnaryOp::from(op);
+                into.push(Instr::Unary { op, dst });
+
+                dst.into()
             },
             TokenType::LParen => {
                 self.advance(ctx);

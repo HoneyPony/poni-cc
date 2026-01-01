@@ -48,10 +48,10 @@ impl Ctx {
 
     /// Creates a new temporary variable, by giving it a StrId that does not
     /// map to any string.
-    pub fn tmp(&mut self) -> ir::Val {
+    pub fn tmp(&mut self) -> ir::Var {
         // No actual string is necessary, and we don't add this to the side
         // map either.
         let id = self.strs.push(String::new());
-        ir::Val::Var(id)
+        id
     }
 }
