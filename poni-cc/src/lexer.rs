@@ -36,9 +36,14 @@ pub enum TokenType {
 
     Semicolon = b';',
 
-    Tilde = b'~',
-    Minus = b'-',
+    Plus    = b'+',
+    Minus   = b'-',
+    Star    = b'*',
+    Slash   = b'/',
+    Percent = b'%',
+    Tilde   = b'~',
 
+    PlusPlus,
     MinusMinus,
 
     Eof,
@@ -57,8 +62,13 @@ impl TokenType {
             TokenType::LBrace => "'{'",
             TokenType::RBrace => "'}'",
             TokenType::Semicolon => "';'",
-            TokenType::Tilde => "'~'",
-            TokenType::Minus => "'-'",
+            TokenType::Tilde   => "'~'",
+            TokenType::Plus    => "'+'",
+            TokenType::Minus   => "'-'",
+            TokenType::Star    => "'*'",
+            TokenType::Slash   => "'/'",
+            TokenType::Percent => "'%'",
+            TokenType::PlusPlus => "'++'",
             TokenType::MinusMinus => "'--'",
             TokenType::Eof => "<eof>",
         }
@@ -164,6 +174,16 @@ impl Lexer {
         Ok(tok)
     }
 
+    #[inline(always)]
+    fn choose_match_one(&mut self, ctx: &mut Ctx, expected_byte: u8, if_matches: TokenType, if_not: TokenType) -> std::io::Result<Token> {
+        if self.match_(ctx, expected_byte)? {
+            Ok(self.token(if_matches))
+        }
+        else {
+            Ok(self.token(if_not))
+        }
+    }
+
     pub fn next(&mut self, ctx: &mut Ctx) -> std::io::Result<Token> {
         while self.next_byte.is_ascii_whitespace() {
             self.advance()?;
@@ -190,14 +210,14 @@ impl Lexer {
             b'}' => self.token(TokenType::RBrace),
             b';' => self.token(TokenType::Semicolon),
             b'~' => self.token(TokenType::Tilde),
-            b'-' => {
-                if self.match_(ctx, b'-')? {
-                    self.token(TokenType::MinusMinus)
-                }
-                else {
-                    self.token(TokenType::Minus)
-                }
-            }
+            b'-' => self.choose_match_one(ctx, b'-',
+                TokenType::MinusMinus, TokenType::Minus)?,
+            b'+' => self.choose_match_one(ctx, b'+',
+                TokenType::PlusPlus, TokenType::Plus)?,
+            b'*' => self.token(TokenType::Star),
+            // TODO: Handle comments.
+            b'/' => self.token(TokenType::Slash),
+            b'%' => self.token(TokenType::Percent),
 
             _ => {
                 if self.at_eof {
