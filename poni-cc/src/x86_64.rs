@@ -180,6 +180,14 @@ impl Instr {
                     BinaryOp::Add => b"\taddl\t",
                     BinaryOp::Subtract => b"\tsubl\t",
                     BinaryOp::Multiply => b"\timull\t",
+                    BinaryOp::And => b"\tandl\t",
+                    BinaryOp::Or => b"\torl\t",
+                    BinaryOp::Xor => b"\txorl\t",
+                    BinaryOp::Lshift => b"\tshll\t",
+                    // For now, because we are using essentially 'int', we
+                    // should be using an arithmetic left shift. This will have
+                    // to change for unsigned values.
+                    BinaryOp::Rshift => b"\tsarl\t",
                     _ => panic!("Bad binary operator"),
                 };
                 Self::two_ops(ctx, output, opstr, src, dst)?;

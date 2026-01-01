@@ -78,11 +78,20 @@ impl UnaryOp {
 impl BinaryOp {
     pub fn from(typ: TokenType) -> Self {
         match typ {
+            // Arithmetic operations
             TokenType::Plus    => BinaryOp::Add      ,
             TokenType::Minus   => BinaryOp::Subtract ,
             TokenType::Star    => BinaryOp::Multiply ,
             TokenType::Slash   => BinaryOp::Divide   ,
             TokenType::Percent => BinaryOp::Remainder,
+
+            // Bitwise operations
+            TokenType::Ampersand      => BinaryOp::And,
+            TokenType::Pipe           => BinaryOp::Or,
+            TokenType::Caret          => BinaryOp::Xor,
+            TokenType::LessLess       => BinaryOp::Lshift,
+            TokenType::GreaterGreater => BinaryOp::Rshift,
+            
             // TODO: ice! macro maybe? So that we can distinguish certain
             // panics from the possible panic-hook idea?
             _ => panic!("ICE: Bad BinaryOp conversion")

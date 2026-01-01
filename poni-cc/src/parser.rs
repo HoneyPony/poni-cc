@@ -112,9 +112,22 @@ impl Parser {
     }
 
     fn next_token_precedence(&self) -> Option<i32> {
+        // See:
+        // https://en.cppreference.com/w/c/language/operator_precedence.html
         match self.next_token.typ {
-            TokenType::Plus | TokenType::Minus => Some(45),
-            TokenType::Star | TokenType::Slash | TokenType::Percent => Some(50),
+            // Comma => 0
+            // Assignment => 5
+            // Ternary => 10
+            // || => 15
+            // && => 20
+            TokenType::Pipe => Some(25),
+            TokenType::Caret => Some(30),
+            TokenType::Ampersand => Some(35),
+            // == & != => Some(40)
+            // relation operators => Some(45)
+            TokenType::LessLess | TokenType::GreaterGreater => Some(50),
+            TokenType::Plus | TokenType::Minus => Some(55),
+            TokenType::Star | TokenType::Slash | TokenType::Percent => Some(60),
             _ => None
         }
     }

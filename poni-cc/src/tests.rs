@@ -137,3 +137,22 @@ test_simple_expr!(binop_many_ints, 150, r"
 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 
 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1");
+
+// A good test of bitwise operators is:
+// 0011 op (3)
+// 0101    (5)
+// As this tests every combination at once.
+
+test_simple_expr!(bitwise_and, 1, "3 & 5");
+test_simple_expr!(bitwise_or, 7, "3 | 5");
+test_simple_expr!(bitwise_xor, 6, "3 ^ 5");
+test_simple_expr!(bitwise_lshift, 16, "1 << 4");
+test_simple_expr!(bitwise_rshift, 77, "1234 >> 4");
+test_simple_expr!(bitwise_rshift_neg, -78, "-1234 >> 4");
+
+test_simple_expr!(bitwise_and_tt, 1, "~~3 & ~~5");
+test_simple_expr!(bitwise_or_tt, 7, "~~3 | ~~5");
+test_simple_expr!(bitwise_xor_tt, 6, "~~3 ^ ~~5");
+test_simple_expr!(bitwise_lshift_tt, 16, "~~1 << ~~4");
+test_simple_expr!(bitwise_rshift_tt, 77, "~~1234 >> ~~4");
+test_simple_expr!(bitwise_rshift_neg_tt, -78, "~~-1234 >> ~~4");
