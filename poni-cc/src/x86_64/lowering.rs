@@ -25,6 +25,9 @@ fn lower(instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
         ir::Instr::Copy { src, dst } => {
             out.push(Instr::Mov { src: lower_val(src), dst: lower_var(dst) })
         }
+        ir::Instr::Binary { op, dst, src1, src2 } => {
+            todo!()
+        }
     }
 }
 
