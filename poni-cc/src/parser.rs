@@ -108,6 +108,22 @@ impl Parser {
     }
 
     pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
+        let mut lhs = self.factor(ctx, into);
+
+        while matches!(self.next_token.typ, TokenType::Plus | TokenType::Minus) {
+            let op = self.advance(ctx);
+            let op = BinaryOp::from(op.typ);
+            let rhs = self.factor(ctx, into);
+            let dst = ctx.tmp();
+
+            into.push(Instr::Binary { op, dst, src1: lhs, src2: rhs });
+            lhs = dst.into();
+        }
+
+        lhs
+    }
+
+    pub fn factor(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
         match self.next_token.typ {
             TokenType::Constant => {
                 let value = self.advance(ctx);
@@ -148,7 +164,7 @@ impl Parser {
                 // clear).
 
                 // src must be evaluated first
-                let src = self.expression(ctx, into);
+                let src = self.factor(ctx, into);
 
                 let dst = Self::promote_to_var(src, ctx, into);
                 let op = UnaryOp::from(op);

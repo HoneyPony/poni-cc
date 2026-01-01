@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, io::Write};
 
-use crate::{ctx::{Ctx, StrId}, ir::UnaryOp};
+use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, UnaryOp}};
 
 pub mod lowering;
 pub use lowering::lower_function;
@@ -23,9 +23,12 @@ pub enum Instr {
     // Note: I'm not sure the cleanest way to represent these.
     // It seems unnecessary to add YET ANOTHER enum for the same '~', '-' etc.
     Unary { op: UnaryOp, operand: Operand },
+    // x86 sure is not three address code.
+    Binary { op: BinaryOp, dst: Operand, src: Operand },
     Mov { src: Operand, dst: Operand },
 }
 
+#[derive(Clone, Copy)]
 pub enum Operand {
     Reg(Register),
     Imm(StrId),
@@ -37,6 +40,7 @@ pub enum Operand {
     Stack(i32),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Register {
     Eax,
     R10d,
@@ -111,6 +115,10 @@ impl Function {
                 Instr::Unary { operand, .. } => {
                     fun(operand);
                 },
+                Instr::Binary { dst, src, .. } => {
+                    fun(dst);
+                    fun(src);
+                }
                 Instr::Mov { src, dst } => {
                     fun(src);
                     fun(dst);
@@ -156,6 +164,14 @@ impl Instr {
                     UnaryOp::Negate => b"\tnegl\t",
                 };
                 Self::one_op(ctx, output, opstr, operand)?;
+            }
+            Instr::Binary { op, dst, src } => {
+                let opstr = match op {
+                    BinaryOp::Add => b"\taddl\t",
+                    BinaryOp::Subtract => b"\tsubl\t",
+                    _ => todo!()
+                };
+                Self::two_ops(ctx, output, opstr, src, dst)?;
             }
         }
 
@@ -234,6 +250,10 @@ pub fn fixup_pass(fun: &mut Function) {
                 new_instrs.push(Instr::Mov { src: s1, dst: Register::R10d.into() });
                 new_instrs.push(Instr::Mov { src: Register::R10d.into(), dst: s2 });
             },
+            Instr::Binary { op, src: s1 @ Operand::Stack(_), dst: s2 @ Operand::Stack(_) } => {
+                new_instrs.push(Instr::Mov { src: s1, dst: Register::R10d.into() });
+                new_instrs.push(Instr::Binary { op, src: Register::R10d.into(), dst: s2 });
+            }
             instr @ _ => {
                 new_instrs.push(instr);
             }
