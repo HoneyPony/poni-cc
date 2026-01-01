@@ -7,6 +7,9 @@ mod ir;
 mod lexer;
 mod parser;
 
+#[cfg(test)]
+mod tests;
+
 // Backend architectures:
 // We will likely (?) not support more than one, but I guess we'll see.
 // (WASM when?)
