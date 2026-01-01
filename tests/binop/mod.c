@@ -1,0 +1,1 @@
+int main(void) { return 70 % 3; }
