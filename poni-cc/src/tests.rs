@@ -17,6 +17,10 @@ fn preprocess(use_cpp: bool, input: &[u8]) -> Vec<u8> {
         drop(stdin);
 
         let output = cpp.wait_with_output().unwrap();
+        eprintln!("done:");
+        eprintln!("{}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("---");
+        std::thread::sleep(std::time::Duration::from_secs(1));
         return output.stdout;
     }
 
@@ -51,7 +55,30 @@ fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) 
     assert!(code == expected_ret);
 }
 
-#[test]
-pub fn simple() {
-    test_driver(false, "simple", b"int main(void) { return 123; }", 123);
+macro_rules! test {
+    ($name:ident, $exit_code:expr, $($c_src:tt)*) => {
+        #[test]
+        fn $name() {
+            const C_SRC: &str = stringify!($($c_src)*);
+            test_driver(true, stringify!($ident), C_SRC.as_bytes(), $exit_code);
+        }
+    }
 }
+
+macro_rules! test_no_cpp {
+    ($name:ident, $exit_code:expr, $($c_src:tt)*) => {
+        #[test]
+        fn $name() {
+            const C_SRC: &str = stringify!($($c_src)*);
+            test_driver(false, stringify!($ident), C_SRC.as_bytes(), $exit_code);
+        }
+    }
+}
+
+test!(simple_cpp, 321,
+#define MY_VAL 321
+int main(void) {
+    return MY_VAL;
+});
+
+test_no_cpp!(simple, 123, int main(void) { return 123; });
