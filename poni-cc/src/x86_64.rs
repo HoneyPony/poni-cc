@@ -4,6 +4,9 @@ use std::io::Write;
 
 use crate::ctx::{Ctx, StrId};
 
+pub mod lowering;
+pub use lowering::lower_function;
+
 pub struct Program {
     pub functions: Vec<Function>,
 }
@@ -25,6 +28,12 @@ pub enum Operand {
 
 pub enum Register {
     Eax,
+}
+
+impl From<Register> for Operand {
+    fn from(value: Register) -> Self {
+        Operand::Reg(value)
+    }
 }
 
 impl Register {

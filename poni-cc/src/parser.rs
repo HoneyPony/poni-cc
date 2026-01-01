@@ -18,7 +18,8 @@
 
 use std::io::Read;
 
-use crate::{ctx::Ctx, lexer::{Lexer, Token, TokenType}, x86_64};
+use crate::{ctx::Ctx, lexer::{Lexer, Token, TokenType}};
+use crate::ir::*;
 
 pub struct Parser {
     next_token: Token,
@@ -51,22 +52,20 @@ impl Parser {
         self.advance(ctx)
     }
 
-    pub fn program(&mut self, ctx: &mut Ctx) -> x86_64::Program {
-        let mut p = x86_64::Program {
-            functions: Vec::new(),
-        };
+    pub fn program(&mut self, ctx: &mut Ctx) -> Vec<Function> {
+        let mut result = Vec::new();
 
-        p.functions.push(self.function(ctx));
+        result.push(self.function(ctx));
         
         self.expect(ctx, TokenType::Eof);
 
         // TODO: We'll probably want to codegen functions as we go, not
         // push them all to a thing first.
-        p
+        result
     }
 
-    pub fn function(&mut self, ctx: &mut Ctx) -> x86_64::Function {
-        let mut instructions: Vec<x86_64::Instr> = Vec::new();
+    pub fn function(&mut self, ctx: &mut Ctx) -> Function {
+        let mut instructions: Vec<Instr> = Vec::new();
 
         self.expect(ctx, TokenType::Int);
         let ident = self.expect(ctx, TokenType::Identifier);
@@ -82,25 +81,24 @@ impl Parser {
         // TODO: We probably want to make the ident.str just a property of
         // e.g. TokenType::Identifier, so that we don't have to call .unwrap()
         // here.
-        x86_64::Function { name: ident.str.unwrap(), instructions }
+        Function { name: ident.str.unwrap(), body: instructions }
     }
 
-    pub fn statement(&mut self, ctx: &mut Ctx, into: &mut Vec<x86_64::Instr>) {
+    pub fn statement(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) {
         self.expect(ctx, TokenType::Return);
         let return_val = self.expression(ctx, into);
         self.expect(ctx, TokenType::Semicolon);
 
         // Generate the code for return
-        into.push(x86_64::Instr::Mov { dst: x86_64::Operand::Reg(x86_64::Register::Eax), src: return_val });
-        into.push(x86_64::Instr::Ret);
+        into.push(Instr::Return(return_val));
     }
 
-    pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<x86_64::Instr>) -> x86_64::Operand {
+    pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
         let value = self.expect(ctx, TokenType::Constant);
         // Same thing as above
         //
         // Also, TODO: Validate that this StrId is a valid integer constant,
         // and/or convert it if necessary.
-        x86_64::Operand::Imm(value.str.unwrap())
+        Val::Constant(value.str.unwrap())
     }
 }
