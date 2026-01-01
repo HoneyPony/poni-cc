@@ -5,7 +5,7 @@ use crate::{ir, x86_64::{self, Instr, Operand, Register}};
 fn lower_val(val: &ir::Val) -> Operand {
     match val {
         ir::Val::Constant(str_id) => Operand::Imm(*str_id),
-        ir::Val::Var(str_id) => todo!("we need psuedoregisters"),
+        ir::Val::Var(str_id) => Operand::Psuedo(*str_id),
     }
 }
 

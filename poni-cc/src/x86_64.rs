@@ -6,6 +6,7 @@ use crate::{ctx::{Ctx, StrId}, ir::UnaryOp};
 
 pub mod lowering;
 pub use lowering::lower_function;
+use poni_arena::ArenaKey;
 
 pub struct Program {
     pub functions: Vec<Function>,
@@ -27,6 +28,12 @@ pub enum Instr {
 pub enum Operand {
     Reg(Register),
     Imm(StrId),
+
+    /// Psuedoregister. Should not actually be generated in real code.
+    Psuedo(StrId),
+
+    /// Stack slot.
+    Stack(i32),
 }
 
 pub enum Register {
@@ -101,7 +108,7 @@ impl Instr {
         output.write_all(str)?;
 
         a.write_as_text(ctx, output)?;
-        output.write_all(b",\t")?;
+        output.write_all(b"\n")?;
 
         Ok(())
     }
@@ -126,11 +133,23 @@ impl Instr {
 impl Operand {
     pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
         match self {
-            Operand::Reg(register) => output.write_all(register.as_asm()),
+            Operand::Reg(register) => { output.write_all(register.as_asm())?; }
             Operand::Imm(str_id) => {
                 output.write_all(b"$")?;
-                output.write_all(ctx.get(*str_id).as_bytes())
-            },
+                output.write_all(ctx.get(*str_id).as_bytes())?;
+            }
+            Operand::Psuedo(str_id) => {
+                // This is not actually valid, but it is good to be able to
+                // see what is going on in case something bad happens.
+                //
+                // We could have some sort of flag to ICE in this case.
+                cwrite!(output, "<psuedoreg {}>", str_id.to_index());
+            }
+            Operand::Stack(offset) => {
+                cwrite!(output, "({})%rbp", offset)
+            }
         }
+
+        Ok(())
     }
 }
