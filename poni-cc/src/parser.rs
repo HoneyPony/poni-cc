@@ -110,7 +110,8 @@ impl Parser {
     pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
         let mut lhs = self.factor(ctx, into);
 
-        while matches!(self.next_token.typ, TokenType::Plus | TokenType::Minus) {
+        // TODO: Implement precedence.
+        while matches!(self.next_token.typ, TokenType::Plus | TokenType::Minus | TokenType::Star | TokenType::Slash | TokenType::Percent) {
             let op = self.advance(ctx);
             let op = BinaryOp::from(op.typ);
             let rhs = self.factor(ctx, into);

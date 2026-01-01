@@ -25,6 +25,8 @@ pub enum Instr {
     Unary { op: UnaryOp, operand: Operand },
     // x86 sure is not three address code.
     Binary { op: BinaryOp, dst: Operand, src: Operand },
+    Cdq,
+    Idiv { dst: Operand },
     Mov { src: Operand, dst: Operand },
 }
 
@@ -43,7 +45,9 @@ pub enum Operand {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Register {
     Eax,
+    Edx,
     R10d,
+    R11d,
 }
 
 impl From<Register> for Operand {
@@ -56,7 +60,9 @@ impl Register {
     pub fn as_asm(&self) -> &'static [u8] {
         match self {
             Register::Eax => b"%eax",
+            Register::Edx => b"%edx",
             Register::R10d => b"%r10d",
+            Register::R11d => b"%r11d",
         }
     }
 }
@@ -123,6 +129,10 @@ impl Function {
                     fun(src);
                     fun(dst);
                 },
+                Instr::Cdq => {},
+                Instr::Idiv { dst } => {
+                    fun(dst);
+                }
             }
         }
     }
@@ -166,12 +176,19 @@ impl Instr {
                 Self::one_op(ctx, output, opstr, operand)?;
             }
             Instr::Binary { op, dst, src } => {
-                let opstr = match op {
+                let opstr: &[u8] = match op {
                     BinaryOp::Add => b"\taddl\t",
                     BinaryOp::Subtract => b"\tsubl\t",
-                    _ => todo!()
+                    BinaryOp::Multiply => b"\timull\t",
+                    _ => panic!("Bad binary operator"),
                 };
                 Self::two_ops(ctx, output, opstr, src, dst)?;
+            }
+            Instr::Cdq => {
+                output.write_all(b"\tcdq\n")?;
+            }
+            Instr::Idiv { dst } => {
+                Self::one_op(ctx, output, b"\tidivl\t", dst)?;
             }
         }
 
@@ -250,9 +267,22 @@ pub fn fixup_pass(fun: &mut Function) {
                 new_instrs.push(Instr::Mov { src: s1, dst: Register::R10d.into() });
                 new_instrs.push(Instr::Mov { src: Register::R10d.into(), dst: s2 });
             },
+            // Whenever the multiply operation has a stack as its dest, fix it
+            // up to use r11d instead.
+            Instr::Binary { op: op @ BinaryOp::Multiply, src, dst: s1 @ Operand::Stack(_) } => {
+                new_instrs.push(Instr::Mov { src: s1, dst: Register::R11d.into() });
+                new_instrs.push(Instr::Binary { op, dst: Register::R11d.into(), src: src });
+                new_instrs.push(Instr::Mov { src: Register::R11d.into(), dst: s1 });
+            }
             Instr::Binary { op, src: s1 @ Operand::Stack(_), dst: s2 @ Operand::Stack(_) } => {
                 new_instrs.push(Instr::Mov { src: s1, dst: Register::R10d.into() });
                 new_instrs.push(Instr::Binary { op, src: Register::R10d.into(), dst: s2 });
+            }
+
+            // Fixup idiv <imm> so that the value is instead in a register.
+            Instr::Idiv { dst: dst @ Operand::Imm(_) } => {
+                new_instrs.push(Instr::Mov { src: dst, dst: Register::R10d.into() });
+                new_instrs.push(Instr::Idiv { dst: Register::R10d.into() });
             }
             instr @ _ => {
                 new_instrs.push(instr);

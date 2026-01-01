@@ -1,6 +1,8 @@
 //! Lowering from crate::ir into the x86_64 assembly.
 
-use crate::{ir, x86_64::{self, Instr, Operand, Register}};
+use std::fmt::Binary;
+
+use crate::{ir::{self, BinaryOp}, x86_64::{self, Instr, Operand, Register}};
 
 fn lower_val(val: &ir::Val) -> Operand {
     match val {
@@ -26,6 +28,24 @@ fn lower(instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
             out.push(Instr::Mov { src: lower_val(src), dst: lower_var(dst) })
         }
         ir::Instr::Binary { op, dst, src1, src2 } => {
+            if *op == BinaryOp::Divide || *op == BinaryOp::Remainder {
+                // Move value into Eax & cdq to prepare for idivl instruction.
+                out.push(Instr::Mov { src: lower_val(src1), dst: Register::Eax.into() });
+                out.push(Instr::Cdq);
+                // We divide by src2. Constant values will be fixed-up in Fixup
+                // pass. (TODO: Maybe we could architect that differently...?)
+                out.push(Instr::Idiv { dst: lower_val(src2) });
+                // Get the value out of Eax or Edx depending on if it was / or %.
+                let src = match op {
+                    BinaryOp::Divide => Register::Eax,
+                    BinaryOp::Remainder => Register::Edx,
+                    _ => unreachable!()
+                };
+                out.push(Instr::Mov { src: src.into(), dst: lower_var(dst) });
+                // Done.
+                return;
+            }
+
             let dst = lower_var(dst);
             // Copy src1 into dst, then do dst op= src2.
             out.push(Instr::Mov { src: lower_val(src1), dst });
