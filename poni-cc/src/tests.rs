@@ -1,21 +1,30 @@
 use std::{io::{Cursor, Write}, path::Path, process::{Command, Stdio}};
 
-fn test_driver(test_name: &str, input: &[u8], expected_ret: i32) {
-    let mut cpp = Command::new("gcc")
-        .arg("-E")
-        .arg("-P")
-        .arg("-x").arg("c")
-        // Read from stdin
-        .arg("-")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn().unwrap();
+fn preprocess(use_cpp: bool, input: &[u8]) -> Vec<u8> {
+    if use_cpp {
+        let mut cpp = Command::new("gcc")
+            .arg("-E")
+            .arg("-P")
+            .arg("-x").arg("c")
+            // Read from stdin
+            .arg("-")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn().unwrap();
 
-    let mut stdin = cpp.stdin.take().unwrap();
-    stdin.write_all(input).unwrap();
-    drop(stdin);
+        let mut stdin = cpp.stdin.take().unwrap();
+        stdin.write_all(input).unwrap();
+        drop(stdin);
 
-    let output = cpp.wait_with_output().unwrap();
+        let output = cpp.wait_with_output().unwrap();
+        return output.stdout;
+    }
+
+    return input.to_vec();
+}
+
+fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) {
+    let output = preprocess(use_cpp, input);
 
     let output_path = Path::new("../testing-ground").join(test_name);
     
@@ -27,7 +36,7 @@ fn test_driver(test_name: &str, input: &[u8], expected_ret: i32) {
         .spawn().unwrap();
 
     let stdin = asm.stdin.take().unwrap();
-    let output = Cursor::new(output.stdout);
+    let output = Cursor::new(output);
     crate::compile(Box::new(output), Box::new(stdin))
         .unwrap();
 
@@ -44,5 +53,5 @@ fn test_driver(test_name: &str, input: &[u8], expected_ret: i32) {
 
 #[test]
 pub fn simple() {
-    test_driver("simple", b"int main(void) { return 123; }", 123);
+    test_driver(false, "simple", b"int main(void) { return 123; }", 123);
 }
