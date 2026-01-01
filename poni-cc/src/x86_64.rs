@@ -14,6 +14,7 @@ pub struct Program {
 
 pub struct Function {
     pub name: StrId,
+    pub stack_size: i32,
     pub instructions: Vec<Instr>
 }
 
@@ -86,6 +87,12 @@ impl Function {
         cwriteln!(output, ".globl {}", ctx.get(self.name));
         cwriteln!(output, "{}:", ctx.get(self.name));
 
+        // Manually generate stack allocation & prelude. This saves us from
+        // needing to add any additional instructions to the instructions vector.
+        cwriteln!(output, "\tpushq\t%rbp");
+        cwriteln!(output, "\tmovq\t%rsp, %rbp");
+        cwriteln!(output, "\tsubq\t${}, %rsp", self.stack_size);
+
         for instr in &self.instructions {
             instr.write_as_text(ctx, output)?;
         }
@@ -136,7 +143,12 @@ impl Instr {
 
     pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
         match self {
-            Instr::Ret => { output.write_all(b"\tret\n")?; }
+            Instr::Ret => {
+                // TODO: This will depend on the stack frame. Annoying...
+                cwriteln!(output, "\tmovq\t%rbp, %rsp");
+                cwriteln!(output, "\tpopq\t%rbp");
+                output.write_all(b"\tret\n")?;
+            }
             Instr::Mov { src, dst } => { Self::two_ops(ctx, output, b"\tmovl ", src, dst)?; }
             Instr::Unary { op, operand } => {
                 let opstr = match op {
@@ -192,15 +204,19 @@ pub fn replace_psuedoregister_pass(fun: &mut Function) {
             Operand::Psuedo(str_id) => {
                 let offset = map.entry(*str_id)
                     .or_insert_with(|| {
-                        let x = offset;
+                        // We have to subtract *then* return the offset. E.g.
+                        // allocating one int on the stack, it needs an
+                        // offset of -4, not 0.
                         offset -= 4;
-                        x
+                        offset
                     });
                 *op = Operand::Stack(*offset);
             },
             _ => {}
         }
     });
+
+    fun.stack_size = -offset;
 }
 
 pub fn fixup_pass(fun: &mut Function) {

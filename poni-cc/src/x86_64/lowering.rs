@@ -33,5 +33,5 @@ pub fn lower_function(function: &ir::Function) -> x86_64::Function {
         lower(instr, &mut instrs);
     }
 
-    x86_64::Function { name: function.name, instructions: instrs }
+    x86_64::Function { name: function.name, stack_size: 0, instructions: instrs }
 }
