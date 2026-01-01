@@ -112,6 +112,29 @@ impl Parser {
 
                 // NOTE: There's actually no real reason to use a new tmp
                 // here? We should probably just overwrite the src variable.
+                //
+                // Some thoughts on why there is a new tmp here:
+                // If we didn't have a new tmp, we could end up generating
+                // something like negl $123, which is obviously wrong.
+                //
+                // ...But, there is no reason to generate *any code at all*
+                // in that case. I will probably end up accidentally implementing
+                // a constant propogator + dead code eliminator or something?
+                // 
+                // Probably I want some sort of function like 'take this Val and
+                // make it real'
+                //
+                // E.g. I guess it's not the end of the world if we end up
+                // generating movl $123, %edi ; negl %edi ; etc. Of course it
+                // feels like we are really just missing some sort of constant
+                // propogator.
+                //
+                // (Actually, maybe more particularly... If we DO end up
+                // generating Instr::Unary { op, reg: Val::Constant }), then
+                // what we'd like to do is simply replace the constant val
+                // there with the evaluated value. E.g. have something like
+                // re-evaluate-this-constant-please. IDK. It's not exactly
+                // clear).
                 let dst = ctx.tmp();
                 let op = UnaryOp::from(op);
                 into.push(Instr::Unary { op, src, dst });
