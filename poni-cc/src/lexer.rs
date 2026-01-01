@@ -37,9 +37,33 @@ pub enum TokenType {
     Semicolon = b';',
 }
 
+impl TokenType {
+    pub fn to_str_const(&self ) -> &'static str {
+        match self {
+            TokenType::Identifier => "identifier",
+            TokenType::Constant => "numerical constant",
+            TokenType::Int => "'int'",
+            TokenType::Void => "'void'",
+            TokenType::Return => "'return'",
+            TokenType::LParen => "'('",
+            TokenType::RParen => "')'",
+            TokenType::LBrace => "'{'",
+            TokenType::RBrace => "'}'",
+            TokenType::Semicolon => "';'",
+        }
+    }
+}
+
+impl std::fmt::Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.to_str_const())
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct Token {
-    typ: TokenType,
-    str: Option<StrId>,
+    pub typ: TokenType,
+    pub str: Option<StrId>,
 }
 
 impl Lexer {
