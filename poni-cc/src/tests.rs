@@ -184,7 +184,10 @@ test_simple_expr!(cmp_greatereq_false, 0, "40 >= 45");
 test_simple_expr!(cmp_greatereq_boundary, 1, "40 >= 40");
 
 test_simple_expr!(cmp_equal_true, 1, "10 == 10");
-test_simple_expr!(cmp_equal_false, 0, "10 != 5");
+test_simple_expr!(cmp_equal_false, 0, "10 == 5");
+
+test_simple_expr!(cmp_notequal_true, 1, "10 != 5");
+test_simple_expr!(cmp_notequal_false, 0, "10 != 10");
 
 test_simple_expr!(cmp_less_true_tt, 1, "~~10 < ~~20");
 test_simple_expr!(cmp_less_false_tt, 0, "~~10 < ~~5");
@@ -203,4 +206,7 @@ test_simple_expr!(cmp_greatereq_false_tt, 0, "~~40 >= ~~45");
 test_simple_expr!(cmp_greatereq_boundary_tt, 1, "~~40 >= ~~40");
 
 test_simple_expr!(cmp_equal_true_tt, 1, "~~10 == ~~10");
-test_simple_expr!(cmp_equal_false_tt, 0, "~~10 != ~~5");
+test_simple_expr!(cmp_equal_false_tt, 0, "~~10 == ~~5");
+
+test_simple_expr!(cmp_notequal_true_tt, 1, "~~10 != ~~5");
+test_simple_expr!(cmp_notequal_false_tt, 0, "~~10 != ~~10");
