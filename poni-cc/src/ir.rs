@@ -43,12 +43,32 @@ pub type Label = StrId;
 pub enum Val {
     // TODO: Probably integers? IDK
     Constant(StrId),
-    Var(Var),
+    RValue(Var),
+
+    /// This may change in the future.
+    /// 
+    /// For now, LValues are *merely* Vars, but with the ability to assign
+    /// to them (and maybe to take their address)?
+    /// 
+    /// Likely we will need a different representation for arrays, maybe
+    /// just with an offset field or something.
+    LValue(Var),
+}
+
+impl Val {
+    /// Converts the given Val to an equivalent Val that is an RValue instead
+    /// of an LValue.
+    pub fn to_rvalue(&self) -> Val {
+        match self {
+            Val::LValue(v) => Val::RValue(*v),
+            _ => *self
+        }
+    }
 }
 
 impl From<Var> for Val {
     fn from(value: Var) -> Self {
-        Val::Var(value)
+        Val::RValue(value)
     }
 }
 

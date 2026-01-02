@@ -5,7 +5,8 @@ use crate::{ctx::Ctx, ir::{self, BinaryOp, UnaryOp}, x86_64::{self, CondCode, In
 fn lower_val(val: &ir::Val) -> Operand {
     match val {
         ir::Val::Constant(str_id) => Operand::Imm(*str_id),
-        ir::Val::Var(str_id) => Operand::Psuedo(*str_id),
+        ir::Val::RValue(str_id) => Operand::Psuedo(*str_id),
+        ir::Val::LValue(str_id) => Operand::Psuedo(*str_id),
     }
 }
 

@@ -101,9 +101,12 @@ impl Parser {
                 var
 
             },
-            Val::Var(str_id) => {
+            Val::RValue(str_id) => {
                 str_id
             },
+            Val::LValue(str_id) => {
+                str_id
+            }
         }
     }
 
@@ -330,7 +333,7 @@ impl Parser {
                 // prec + 1
                 let rhs = self.climb_precedence(ctx, into, prec);
 
-                if let Val::Var(var) = lhs {
+                if let Val::LValue(var) = lhs {
                     if op.typ == TokenType::Equal {
                         into.push(Instr::Copy { src: rhs, dst: var });
                     }
@@ -341,8 +344,9 @@ impl Parser {
                         into.push(Instr::Binary { op: BinaryOp::from(op.typ), dst: var, lhs, rhs })
                     }
 
-                    // I believe LHS doesn't change in this case? We already
-                    // have the value in the var...
+                    // The LHS doesn't change super meaningfully here, but
+                    // it DOES need to no longer be an lvalue.
+                    lhs = lhs.to_rvalue();
                 }
                 else {
                     // TODO:
@@ -381,7 +385,11 @@ impl Parser {
                     panic!("unresolved identifier '{}'", ctx.get(var_name));
                 };
 
-                Val::Var(var)
+                // Identifiers produce an LValue.
+                //
+                // Note that this still works properly even when we e.g.
+                // wrap the identifier in parenthesis.
+                Val::LValue(var)
             }
             // Unary operators
             op @ (TokenType::Tilde | TokenType::Minus | TokenType::Bang) => {
