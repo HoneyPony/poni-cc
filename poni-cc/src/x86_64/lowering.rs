@@ -1,6 +1,6 @@
 //! Lowering from crate::ir into the x86_64 assembly.
 
-use crate::{ctx::Ctx, ir::{self, BinaryOp}, x86_64::{self, CondCode, Instr, Operand, Register}};
+use crate::{ctx::Ctx, ir::{self, BinaryOp, UnaryOp}, x86_64::{self, CondCode, Instr, Operand, Register}};
 
 fn lower_val(val: &ir::Val) -> Operand {
     match val {
@@ -34,6 +34,14 @@ fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
             out.push(Instr::Ret);
         }
         ir::Instr::Unary { op, dst } => {
+            if *op == UnaryOp::Not {
+                // Special handling.
+                let dst = lower_var(dst);
+                out.push(Instr::Cmp { lhs: dst, rhs: Operand::Imm(ctx.zero()) });
+                out.push(Instr::Mov { dst, src: Operand::Imm(ctx.zero()) });
+                out.push(Instr::SetCC(CondCode::E, dst));
+                return;
+            }
             out.push(Instr::Unary { op: *op, operand: lower_var(dst) })
         }
         ir::Instr::Copy { src, dst } => {

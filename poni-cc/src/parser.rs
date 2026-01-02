@@ -242,7 +242,7 @@ impl Parser {
                 Val::Constant(value.str.unwrap())
             },
             // Unary operators
-            op @ (TokenType::Tilde | TokenType::Minus) => {
+            op @ (TokenType::Tilde | TokenType::Minus | TokenType::Bang) => {
                 self.advance(ctx);
 
                 // NOTE: There's actually no real reason to use a new tmp

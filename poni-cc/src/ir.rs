@@ -57,6 +57,7 @@ impl From<Var> for Val {
 pub enum UnaryOp {
     Complement = b'~',
     Negate     = b'-',
+    Not        = b'!',
 }
 
 #[repr(u8)]
@@ -85,6 +86,7 @@ impl UnaryOp {
         match typ {
             TokenType::Tilde => UnaryOp::Complement,
             TokenType::Minus => UnaryOp::Negate,
+            TokenType::Bang  => UnaryOp::Not,
             // TODO: ice! macro maybe? So that we can distinguish certain
             // panics from the possible panic-hook idea?
             _ => panic!("ICE: Bad UnaryOp conversion")

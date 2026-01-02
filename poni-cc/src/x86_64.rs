@@ -234,6 +234,7 @@ impl Instr {
                 let opstr = match op {
                     UnaryOp::Complement => b"\tnotl\t",
                     UnaryOp::Negate => b"\tnegl\t",
+                    UnaryOp::Not => panic!(),
                 };
                 Self::one_op(ctx, output, opstr, operand)?;
             }

@@ -167,6 +167,9 @@ test_simple_expr!(or_01, 1, "(1 + 1 - 2) || (3 + 4 - 6)");
 test_simple_expr!(or_10, 1, "(1 + 2 - 2) || (3 + 3 - 6)");
 test_simple_expr!(or_11, 1, "(1 + 2 - 2) || (3 + 4 - 6)");
 
+test_simple_expr!(not_0, 0, "!(1 + 2 + 3 + 4)");
+test_simple_expr!(not_1, 1, "!(1 + 2 - 3 + 4 - 4)");
+
 test_simple_expr!(cmp_less_true, 1, "10 < 20");
 test_simple_expr!(cmp_less_false, 0, "10 < 5");
 test_simple_expr!(cmp_less_boundary, 0, "10 < 10");
