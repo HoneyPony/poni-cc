@@ -96,20 +96,27 @@ impl UnaryOp {
 
 impl BinaryOp {
     pub fn from(typ: TokenType) -> Self {
+        // TODO: we could consider splitting this into two functions:
+        //     from_op
+        // and
+        //     from_assign_op
+        // That way we don't waste time considering cases it can't be. Although,
+        // if the compiler inlines this function, it will probably be fine either
+        // way.
         match typ {
             // Arithmetic operations
-            TokenType::Plus    => BinaryOp::Add      ,
-            TokenType::Minus   => BinaryOp::Subtract ,
-            TokenType::Star    => BinaryOp::Multiply ,
-            TokenType::Slash   => BinaryOp::Divide   ,
-            TokenType::Percent => BinaryOp::Remainder,
+            TokenType::Plus    | TokenType::PlusEqual    => BinaryOp::Add      ,
+            TokenType::Minus   | TokenType::MinusEqual   => BinaryOp::Subtract ,
+            TokenType::Star    | TokenType::StarEqual    => BinaryOp::Multiply ,
+            TokenType::Slash   | TokenType::SlashEqual   => BinaryOp::Divide   ,
+            TokenType::Percent | TokenType::PercentEqual => BinaryOp::Remainder,
 
             // Bitwise operations
-            TokenType::Ampersand      => BinaryOp::And,
-            TokenType::Pipe           => BinaryOp::Or,
-            TokenType::Caret          => BinaryOp::Xor,
-            TokenType::LessLess       => BinaryOp::Lshift,
-            TokenType::GreaterGreater => BinaryOp::Rshift,
+            TokenType::Ampersand      | TokenType::AmpersandEqual      => BinaryOp::And,
+            TokenType::Pipe           | TokenType::PipeEqual           => BinaryOp::Or,
+            TokenType::Caret          | TokenType::CaretEqual          => BinaryOp::Xor,
+            TokenType::LessLess       | TokenType::LessLessEqual       => BinaryOp::Lshift,
+            TokenType::GreaterGreater | TokenType::GreaterGreaterEqual => BinaryOp::Rshift,
 
             // Comparison operators
             TokenType::Less         => BinaryOp::Less,

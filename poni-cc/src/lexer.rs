@@ -65,6 +65,18 @@ pub enum TokenType {
     LessEqual,
     GreaterEqual,
 
+    PlusEqual,
+    MinusEqual,
+    StarEqual,
+    SlashEqual,
+    PercentEqual,
+
+    AmpersandEqual,
+    PipeEqual,
+    CaretEqual,
+    LessLessEqual,
+    GreaterGreaterEqual,
+
     Eof,
 }
 
@@ -104,6 +116,22 @@ impl TokenType {
             TokenType::GreaterGreater => "'>>'",
             TokenType::LessEqual => "'<='",
             TokenType::GreaterEqual => "'>='",
+
+            // Arithmetic compound assignment
+            TokenType::PlusEqual    => "'+='",
+            TokenType::MinusEqual   => "'-='",
+            TokenType::StarEqual    => "'*='",
+            TokenType::SlashEqual   => "'/='",
+            TokenType::PercentEqual => "'%='",
+
+            // Bitwise compound assignment
+            TokenType::AmpersandEqual      => "'&='",
+            TokenType::PipeEqual           => "'|='",
+            TokenType::CaretEqual          => "'^='",
+            TokenType::LessLessEqual       => "'<<='",
+            TokenType::GreaterGreaterEqual => "'>>='",
+
+            // Eof
             TokenType::Eof => "<eof>",
         }
     }
@@ -218,6 +246,30 @@ impl Lexer {
         }
     }
 
+    // TODO: Consider writing a little macro for this, e.g.
+    // match_next!(self, ctx, {
+    //    b'+' => PlusPlus,
+    //    b'=' => PlusEqual,
+    //    _    => Plus,
+    // })
+    #[inline(always)]
+    fn choose_match_two(&mut self, ctx: &mut Ctx, default: TokenType, a: u8, atype: TokenType, b: u8, btype: TokenType) -> std::io::Result<Token> {
+        let typ = match self.next_byte {
+            n if n == a => {
+                self.advance()?;
+                atype
+            }
+            n if n == b => {
+                self.advance()?;
+                btype
+            }
+            _ => {
+                default
+            }
+        };
+        Ok(self.token(typ))
+    }
+
     pub fn next(&mut self, ctx: &mut Ctx) -> std::io::Result<Token> {
         while self.next_byte.is_ascii_whitespace() {
             self.advance()?;
@@ -244,24 +296,38 @@ impl Lexer {
             b'}' => self.token(TokenType::RBrace),
             b';' => self.token(TokenType::Semicolon),
             b'~' => self.token(TokenType::Tilde),
-            b'^' => self.token(TokenType::Caret),
+            b'^' => self.choose_match_one(ctx, b'=',
+                TokenType::CaretEqual, TokenType::Caret)?,
             b'=' => self.choose_match_one(ctx, b'=',
                 TokenType::EqualEqual, TokenType::Equal)?,
             b'!' => self.choose_match_one(ctx, b'=',
                 TokenType::BangEqual, TokenType::Bang)?,
-            b'-' => self.choose_match_one(ctx, b'-',
-                TokenType::MinusMinus, TokenType::Minus)?,
-            b'+' => self.choose_match_one(ctx, b'+',
-                TokenType::PlusPlus, TokenType::Plus)?,
-            b'&' => self.choose_match_one(ctx, b'&',
-                TokenType::AmpersandAmpersand, TokenType::Ampersand)?,
-            b'|' => self.choose_match_one(ctx, b'|',
-                TokenType::PipePipe, TokenType::Pipe)?,
-            // TODO: Also handle <= and >=
+            b'-' => self.choose_match_two(ctx, TokenType::Minus,
+                b'-', TokenType::MinusMinus,
+                b'=', TokenType::MinusEqual)?,
+            b'+' => self.choose_match_two(ctx, TokenType::Plus,
+                b'+', TokenType::PlusPlus,
+                b'=', TokenType::PlusEqual)?,
+            b'&' => self.choose_match_two(ctx, TokenType::Ampersand,
+                b'&', TokenType::AmpersandAmpersand,
+                b'=', TokenType::AmpersandEqual)?,
+            b'|' => self.choose_match_two(ctx, TokenType::Pipe,
+                b'|', TokenType::PipePipe,
+                b'=', TokenType::PipeEqual)?,
+            b'*' => self.choose_match_one(ctx, b'=',
+                TokenType::StarEqual, TokenType::Star)?,
+            b'%' => self.choose_match_one(ctx, b'=',
+                TokenType::PercentEqual, TokenType::Percent)?,
+
+            // TODO: Handle comments.
+            b'/' => self.choose_match_one(ctx, b'=',
+                TokenType::SlashEqual, TokenType::Slash)?,
+
             b'<' => match self.next_byte {
                 b'<' => {
                     self.advance()?;
-                    self.token(TokenType::LessLess)
+                    self.choose_match_one(ctx, b'=',
+                        TokenType::LessLessEqual, TokenType::LessLess)?
                 }
                 b'=' => {
                     self.advance()?;
@@ -270,10 +336,12 @@ impl Lexer {
                 // Don't advance.
                 _ => self.token(TokenType::Less)
             }
+
             b'>' => match self.next_byte {
                 b'>' => {
                     self.advance()?;
-                    self.token(TokenType::GreaterGreater)
+                    self.choose_match_one(ctx, b'=',
+                        TokenType::GreaterGreaterEqual, TokenType::GreaterGreater)?
                 }
                 b'=' => {
                     self.advance()?;
@@ -282,10 +350,6 @@ impl Lexer {
                 // Don't advance.
                 _ => self.token(TokenType::Greater)
             }
-            b'*' => self.token(TokenType::Star),
-            // TODO: Handle comments.
-            b'/' => self.token(TokenType::Slash),
-            b'%' => self.token(TokenType::Percent),
 
             _ => {
                 if self.at_eof {

@@ -241,3 +241,75 @@ test_no_cpp!(var_decl_assign_oo, 29, br"int main(void) {
     d = d + 2;
     return a + b + c + d;
 }");
+
+test_no_cpp!(assign_compound1, 37, br"int main(void) {
+    int a = 1;
+    int b = 2;
+    int c = 3;
+
+    a += 5;
+    b *= 4;
+    c |= 22;
+
+    return a + b + c;
+}");
+
+test_no_cpp!(assign_compound2, 2, br"int main(void) {
+    int a = 1;
+    int b = 2400;
+    int c = 255;
+
+    a -= 40;
+    b /= 123;
+    c &= 22;
+
+    return a + b + c;
+}");
+
+test_no_cpp!(assign_compound3, 154, br"int main(void) {
+    int a = 1;
+    int b = 2400;
+    int c = 123;
+
+    a <<= 3;
+    b >>= 6;
+    c ^= 22;
+
+    return a + b + c;
+}");
+
+test_no_cpp!(assign_compound1_tt, 37, br"int main(void) {
+    int a = 1;
+    int b = 2;
+    int c = 3;
+
+    a += ~~5;
+    b *= ~~4;
+    c |= ~~22;
+
+    return a + b + c;
+}");
+
+test_no_cpp!(assign_compound2_tt, 2, br"int main(void) {
+    int a = 1;
+    int b = 2400;
+    int c = 255;
+
+    a -= ~~40;
+    b /= ~~123;
+    c &= ~~22;
+
+    return a + b + c;
+}");
+
+test_no_cpp!(assign_compound3_tt, 154, br"int main(void) {
+    int a = 1;
+    int b = 2400;
+    int c = 123;
+
+    a <<= ~~3;
+    b >>= ~~6;
+    c ^= ~~22;
+
+    return a + b + c;
+}");

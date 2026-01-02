@@ -206,8 +206,11 @@ impl Parser {
         // https://en.cppreference.com/w/c/language/operator_precedence.html
         match self.next_token.typ {
             // Comma => 0
-            // Assignment => 5
-            TokenType::Equal => Some(5),
+            TokenType::Equal | TokenType::PlusEqual | TokenType::MinusEqual |
+                    TokenType::StarEqual | TokenType::SlashEqual |
+                    TokenType::AmpersandEqual | TokenType::PipeEqual |
+                    TokenType::CaretEqual  |
+                    TokenType::LessLessEqual | TokenType::GreaterGreaterEqual => Some(5),
             // Ternary => 10
             TokenType::PipePipe => Some(15),
             TokenType::AmpersandAmpersand => Some(20),
@@ -309,7 +312,13 @@ impl Parser {
                 // Make sure to update lhs!
                 lhs = dst.into();
             }
-            else if matches!(op.typ, TokenType::Equal) {
+            else if matches!(op.typ,
+                TokenType::Equal | TokenType::PlusEqual | TokenType::MinusEqual |
+                    TokenType::StarEqual | TokenType::SlashEqual |
+                    TokenType::AmpersandEqual | TokenType::PipeEqual |
+                    TokenType::CaretEqual |
+                    TokenType::LessLessEqual | TokenType::GreaterGreaterEqual
+            ) {
                 // Assignment
                 
                 // Assignment is right associative, so use prec instead of
@@ -317,7 +326,15 @@ impl Parser {
                 let rhs = self.climb_precedence(ctx, into, prec);
 
                 if let Val::Var(var) = lhs {
-                    into.push(Instr::Copy { src: rhs, dst: var });
+                    if op.typ == TokenType::Equal {
+                        into.push(Instr::Copy { src: rhs, dst: var });
+                    }
+                    else {
+                        // This will probably be a bit tricky with other kinds
+                        // of lvalues. For now, just generate a BinaryOp that
+                        // is assigning to the destination.
+                        into.push(Instr::Binary { op: BinaryOp::from(op.typ), dst: var, lhs, rhs })
+                    }
 
                     // I believe LHS doesn't change in this case? We already
                     // have the value in the var...
