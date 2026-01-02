@@ -18,12 +18,34 @@
 
 use std::io::Read;
 
-use crate::{ctx::Ctx, lexer::{Lexer, Token, TokenType}};
+use rustc_hash::FxHashMap;
+
+use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, Token, TokenType}};
 use crate::ir::*;
+
+/// A single scope of vars, e.g. there are two different VarScopes in the following:
+/// ```c
+/// int a = 30;
+/// {
+///     int a = 40; // valid
+/// }
+/// ```
+struct VarScope {
+    map: FxHashMap<StrId, crate::ir::Var>,
+}
+
+impl VarScope {
+    fn new() -> Self {
+        VarScope {
+            map: FxHashMap::default()
+        }
+    }
+}
 
 pub struct Parser {
     next_token: Token,
     lexer: Lexer,
+    variables: Vec<VarScope>,
 }
 
 impl Parser {
@@ -31,6 +53,8 @@ impl Parser {
         let mut result = Parser {
             next_token: Token { typ: TokenType::Eof, str: None },
             lexer: Lexer::new(input, ctx),
+            // Start with the global scope. (?)
+            variables: vec![VarScope::new()],
         };
 
         // Prime the parser so it has a legit token.
@@ -50,6 +74,23 @@ impl Parser {
             panic!("expected {} got {}", typ, self.next_token.typ);
         }
         self.advance(ctx)
+    }
+
+    fn match_(&mut self, ctx: &mut Ctx, typ: TokenType) -> bool {
+        if self.next_token.typ == typ {
+            self.advance(ctx);
+            return true;
+        }
+        false
+    }
+
+    fn lookup_var(&self, var_name: StrId) -> Option<Var> {
+        for scope in self.variables.iter().rev() {
+            if let Some(var) = scope.map.get(&var_name) {
+                return Some(*var);
+            }
+        }
+        None
     }
 
     fn promote_to_var(val: Val, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Var {
@@ -81,6 +122,9 @@ impl Parser {
     pub fn function(&mut self, ctx: &mut Ctx) -> Function {
         let mut instructions: Vec<Instr> = Vec::new();
 
+        // New scope for the function's variables
+        self.variables.push(VarScope::new());
+
         self.expect(ctx, TokenType::Int);
         let ident = self.expect(ctx, TokenType::Identifier);
         self.expect(ctx, TokenType::LParen);
@@ -88,7 +132,11 @@ impl Parser {
         self.expect(ctx, TokenType::RParen);
         self.expect(ctx, TokenType::LBrace);
 
-        let inner = self.statement(ctx, &mut instructions);
+        while !matches!(self.next_token.typ, TokenType::RBrace | TokenType::Eof) {
+            self.block_item(ctx, &mut instructions);
+        }
+
+        self.variables.pop();
 
         self.expect(ctx, TokenType::RBrace);
 
@@ -98,13 +146,55 @@ impl Parser {
         Function { name: ident.str.unwrap(), body: instructions }
     }
 
-    pub fn statement(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) {
-        self.expect(ctx, TokenType::Return);
-        let return_val = self.expression(ctx, into);
-        self.expect(ctx, TokenType::Semicolon);
+    pub fn block_item(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) {
+        if self.match_(ctx, TokenType::Int) {
+            // Declaration
 
-        // Generate the code for return
-        into.push(Instr::Return(return_val));
+            // In the future, this will have to parse a whole type somehow...
+            let var_name = self.expect(ctx, TokenType::Identifier);
+            let var_name = var_name.str.unwrap();
+            if self.lookup_var(var_name).is_some() {
+                panic!("duplicate variable '{}'", ctx.get(var_name));
+            }
+
+            let var = ctx.tmp();
+            // It should be safe to unwrap the last() because we always have
+            // a global scope.
+            self.variables.last_mut().unwrap().map.insert(var_name, var);
+
+            // Parse initializer
+            if self.match_(ctx, TokenType::Equal) {
+                let initializer = self.expression(ctx, into);
+                into.push(Instr::Copy { src: initializer, dst: var });
+            }
+
+            self.expect(ctx, TokenType::Semicolon);
+        }
+        else {
+            self.statement(ctx, into);
+        }
+    }
+
+    pub fn statement(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) {
+        match self.next_token.typ {
+            TokenType::Return => {
+                self.expect(ctx, TokenType::Return);
+                let return_val = self.expression(ctx, into);
+                self.expect(ctx, TokenType::Semicolon);
+
+                // Generate the code for return
+                into.push(Instr::Return(return_val));
+            },
+            TokenType::Semicolon => {
+                // Skip empty statements.
+                self.advance(ctx);
+            }
+            _ => {
+                self.expression(ctx, into);
+                self.expect(ctx, TokenType::Semicolon);
+            }
+        }
+        
     }
 
     pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
@@ -117,6 +207,7 @@ impl Parser {
         match self.next_token.typ {
             // Comma => 0
             // Assignment => 5
+            TokenType::Equal => Some(5),
             // Ternary => 10
             TokenType::PipePipe => Some(15),
             TokenType::AmpersandAmpersand => Some(20),
@@ -218,6 +309,26 @@ impl Parser {
                 // Make sure to update lhs!
                 lhs = dst.into();
             }
+            else if matches!(op.typ, TokenType::Equal) {
+                // Assignment
+                
+                // Assignment is right associative, so use prec instead of
+                // prec + 1
+                let rhs = self.climb_precedence(ctx, into, prec);
+
+                if let Val::Var(var) = lhs {
+                    into.push(Instr::Copy { src: rhs, dst: var });
+
+                    // I believe LHS doesn't change in this case? We already
+                    // have the value in the var...
+                }
+                else {
+                    // TODO:
+                    // To properly handle LValues, we miiiight need an AST?
+                    // Maybe not.
+                    panic!("assignment to non-lvalue");
+                }
+            }
             else {
                 let op = BinaryOp::from(op.typ);
                 let rhs = self.climb_precedence(ctx, into, prec + 1);
@@ -241,6 +352,15 @@ impl Parser {
                 // and/or convert it if necessary.
                 Val::Constant(value.str.unwrap())
             },
+            TokenType::Identifier => {
+                let var_name = self.advance(ctx).str.unwrap();
+
+                let Some(var) = self.lookup_var(var_name) else {
+                    panic!("unresolved identifier '{}'", ctx.get(var_name));
+                };
+
+                Val::Var(var)
+            }
             // Unary operators
             op @ (TokenType::Tilde | TokenType::Minus | TokenType::Bang) => {
                 self.advance(ctx);

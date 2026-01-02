@@ -213,3 +213,31 @@ test_simple_expr!(cmp_equal_false_tt, 0, "~~10 == ~~5");
 
 test_simple_expr!(cmp_notequal_true_tt, 1, "~~10 != ~~5");
 test_simple_expr!(cmp_notequal_false_tt, 0, "~~10 != ~~10");
+
+test_no_cpp!(var_decl, 60, br"int main(void) {
+    int a = 10;
+    int b = 20;
+    int c = 30;
+    return a + b + c;
+}");
+test_no_cpp!(var_decl_assign, 24, br"int main(void) {
+    int a = 10;
+    int b = 20;
+    int c = 30;
+    a = 2;
+    b = 15;
+    c = 7;
+    return a + b + c;
+}");
+test_no_cpp!(var_decl_assign_oo, 29, br"int main(void) {
+    int a = 10;
+    a = 2;
+    int b = 20;
+    int c = 30;
+    b = 15;
+    c = 7;
+    b = a * c;
+    int d = 4;
+    d = d + 2;
+    return a + b + c + d;
+}");

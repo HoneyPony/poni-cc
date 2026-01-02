@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 poni-arena = { git = "https://github.com/HoneyPony/poniescript", version = "0.1.0" }
+rustc-hash = "2.1.1"
