@@ -166,3 +166,41 @@ test_simple_expr!(or_00, 0, "(1 + 1 - 2) || (3 + 3 - 6)");
 test_simple_expr!(or_01, 1, "(1 + 1 - 2) || (3 + 4 - 6)");
 test_simple_expr!(or_10, 1, "(1 + 2 - 2) || (3 + 3 - 6)");
 test_simple_expr!(or_11, 1, "(1 + 2 - 2) || (3 + 4 - 6)");
+
+test_simple_expr!(cmp_less_true, 1, "10 < 20");
+test_simple_expr!(cmp_less_false, 0, "10 < 5");
+test_simple_expr!(cmp_less_boundary, 0, "10 < 10");
+
+test_simple_expr!(cmp_greater_true, 1, "40 > 30");
+test_simple_expr!(cmp_greater_false, 0, "40 > 45");
+test_simple_expr!(cmp_greater_boundary, 0, "40 > 40");
+
+test_simple_expr!(cmp_lesseq_true, 1, "10 <= 20");
+test_simple_expr!(cmp_lesseq_false, 0, "10 <= 5");
+test_simple_expr!(cmp_lesseq_boundary, 1, "10 <= 10");
+
+test_simple_expr!(cmp_greatereq_true, 1, "40 >= 30");
+test_simple_expr!(cmp_greatereq_false, 0, "40 >= 45");
+test_simple_expr!(cmp_greatereq_boundary, 1, "40 >= 40");
+
+test_simple_expr!(cmp_equal_true, 1, "10 == 10");
+test_simple_expr!(cmp_equal_false, 0, "10 != 5");
+
+test_simple_expr!(cmp_less_true_tt, 1, "~~10 < ~~20");
+test_simple_expr!(cmp_less_false_tt, 0, "~~10 < ~~5");
+test_simple_expr!(cmp_less_boundary_tt, 0, "~~10 < ~~10");
+
+test_simple_expr!(cmp_greater_true_tt, 1, "~~40 > ~~30");
+test_simple_expr!(cmp_greater_false_tt, 0, "~~40 > ~~45");
+test_simple_expr!(cmp_greater_boundary_tt, 0, "~~40 > ~~40");
+
+test_simple_expr!(cmp_lesseq_true_tt, 1, "~~10 <= ~~20");
+test_simple_expr!(cmp_lesseq_false_tt, 0, "~~10 <= ~~5");
+test_simple_expr!(cmp_lesseq_boundary_tt, 1, "~~10 <= ~~10");
+
+test_simple_expr!(cmp_greatereq_true_tt, 1, "~~40 >= ~~30");
+test_simple_expr!(cmp_greatereq_false_tt, 0, "~~40 >= ~~45");
+test_simple_expr!(cmp_greatereq_boundary_tt, 1, "~~40 >= ~~40");
+
+test_simple_expr!(cmp_equal_true_tt, 1, "~~10 == ~~10");
+test_simple_expr!(cmp_equal_false_tt, 0, "~~10 != ~~5");

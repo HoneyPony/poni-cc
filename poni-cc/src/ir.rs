@@ -70,6 +70,12 @@ pub enum BinaryOp {
     And       = b'&',
     Or        = b'|',
     Xor       = b'^',
+    Less      = b'<',
+    Greater   = b'>',
+    LessEqual,
+    GreaterEqual,
+    Equal,
+    NotEqual,
     Lshift,
     Rshift,
 }
@@ -103,7 +109,15 @@ impl BinaryOp {
             TokenType::LessLess       => BinaryOp::Lshift,
             TokenType::GreaterGreater => BinaryOp::Rshift,
 
-            // TODO: ice! macro maybe? So that we can distinguish certain
+            // Comparison operators
+            TokenType::Less         => BinaryOp::Less,
+            TokenType::LessEqual    => BinaryOp::LessEqual,
+            TokenType::Greater      => BinaryOp::Greater,
+            TokenType::GreaterEqual => BinaryOp::GreaterEqual,
+            TokenType::EqualEqual   => BinaryOp::Equal,
+            TokenType::BangEqual    => BinaryOp::NotEqual,
+
+            // TODO: ice! macro maybe? So that we can distinguish certaain
             // panics from the possible panic-hook idea?
             _ => panic!("ICE: Bad BinaryOp conversion")
         }

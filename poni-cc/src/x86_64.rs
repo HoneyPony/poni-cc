@@ -63,7 +63,7 @@ impl CondCode {
 
 #[derive(Clone, Copy)]
 pub enum Operand {
-    Reg(Register),
+    Reg(Register, u8),
     Imm(StrId),
 
     /// Psuedoregister. Should not actually be generated in real code.
@@ -71,6 +71,15 @@ pub enum Operand {
 
     /// Stack slot.
     Stack(i32),
+}
+
+impl Operand {
+    pub fn with_size(&self, size: u8) -> Operand {
+        match self {
+            Operand::Reg(r, _) => Operand::Reg(*r, size),
+            _ => *self
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -84,18 +93,27 @@ pub enum Register {
 
 impl From<Register> for Operand {
     fn from(value: Register) -> Self {
-        Operand::Reg(value)
+        // For now, default to 4 bytes (?)
+        Operand::Reg(value, 4)
     }
 }
 
 impl Register {
-    pub fn as_asm(&self) -> &'static [u8] {
-        match self {
-            Register::Eax => b"%eax",
-            Register::Ecx => b"%ecx",
-            Register::Edx => b"%edx",
-            Register::R10d => b"%r10d",
-            Register::R11d => b"%r11d",
+    pub fn as_asm(&self, size: u8) -> &'static [u8] {
+        match (self, size) {
+            (Register::Eax , 4) => b"%eax",
+            (Register::Ecx , 4) => b"%ecx",
+            (Register::Edx , 4) => b"%edx",
+            (Register::R10d, 4) => b"%r10d",
+            (Register::R11d, 4) => b"%r11d",
+
+            (Register::Eax , 1) => b"%al",
+            (Register::Ecx , 1) => b"%cl",
+            (Register::Edx , 1) => b"%dl",
+            (Register::R10d, 1) => b"%r10b",
+            (Register::R11d, 1) => b"%r11b",
+
+            _ => todo!()
         }
     }
 }
@@ -289,7 +307,7 @@ impl Instr {
 impl Operand {
     pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
         match self {
-            Operand::Reg(register) => { output.write_all(register.as_asm())?; }
+            Operand::Reg(register, size) => { output.write_all(register.as_asm(*size))?; }
             Operand::Imm(str_id) => {
                 output.write_all(b"$")?;
                 output.write_all(ctx.get(*str_id).as_bytes())?;

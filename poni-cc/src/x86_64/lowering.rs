@@ -13,6 +13,20 @@ fn lower_var(var: &ir::Var) -> Operand {
     Operand::Psuedo(*var)
 }
 
+// Checks if the given BinaryOp is relational, and if so, fetches the associated
+// CondCode.
+fn relational(op: BinaryOp) -> Option<CondCode> {
+    match op {
+        BinaryOp::Equal        => Some(CondCode::E),
+        BinaryOp::NotEqual     => Some(CondCode::NE),
+        BinaryOp::Less         => Some(CondCode::L),
+        BinaryOp::LessEqual    => Some(CondCode::LE),
+        BinaryOp::Greater      => Some(CondCode::G),
+        BinaryOp::GreaterEqual => Some(CondCode::GE),
+        _ => None,
+    }
+}
+
 fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
     match instr {
         ir::Instr::Return(val) => {
@@ -52,6 +66,19 @@ fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
                 let dst = lower_var(dst);
                 out.push(Instr::Mov { dst, src: lower_val(lhs) });
                 out.push(Instr::Shift { op: *op, dst });
+                return;
+            }
+
+            // For relational ops, we generate cmp & setcc instructions.
+            if let Some(cc) = relational(*op) {
+                let dst = lower_var(dst);
+                out.push(Instr::Cmp { lhs: lower_val(lhs), rhs: lower_val(rhs) });
+
+                // We generate a Mov of 0 so that the full register is zeroed out.
+                out.push(Instr::Mov { src: Operand::Imm(ctx.zero()), dst });
+                // Need a 1 byte register. This is a bit awkward (?)
+                out.push(Instr::SetCC(cc, dst.with_size(1)));
+
                 return;
             }
 
