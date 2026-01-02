@@ -266,16 +266,18 @@ test_no_cpp!(assign_compound2, 2, br"int main(void) {
     return a + b + c;
 }");
 
-test_no_cpp!(assign_compound3, 154, br"int main(void) {
+test_no_cpp!(assign_compound3, 155, br"int main(void) {
     int a = 1;
     int b = 2400;
     int c = 123;
+    int d = 40;
 
     a <<= 3;
     b >>= 6;
     c ^= 22;
+    d %= 3;
 
-    return a + b + c;
+    return a + b + c + d;
 }");
 
 test_no_cpp!(assign_compound1_tt, 37, br"int main(void) {
@@ -302,14 +304,16 @@ test_no_cpp!(assign_compound2_tt, 2, br"int main(void) {
     return a + b + c;
 }");
 
-test_no_cpp!(assign_compound3_tt, 154, br"int main(void) {
+test_no_cpp!(assign_compound3_tt, 155, br"int main(void) {
     int a = 1;
     int b = 2400;
     int c = 123;
+    int d = 40;
 
     a <<= ~~3;
     b >>= ~~6;
     c ^= ~~22;
+    d %= ~~3;
 
-    return a + b + c;
+    return a + b + c + d;
 }");

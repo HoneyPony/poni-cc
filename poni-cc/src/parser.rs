@@ -207,9 +207,9 @@ impl Parser {
         match self.next_token.typ {
             // Comma => 0
             TokenType::Equal | TokenType::PlusEqual | TokenType::MinusEqual |
-                    TokenType::StarEqual | TokenType::SlashEqual |
+                    TokenType::StarEqual | TokenType::SlashEqual | TokenType::PercentEqual |
                     TokenType::AmpersandEqual | TokenType::PipeEqual |
-                    TokenType::CaretEqual  |
+                    TokenType::CaretEqual |
                     TokenType::LessLessEqual | TokenType::GreaterGreaterEqual => Some(5),
             // Ternary => 10
             TokenType::PipePipe => Some(15),
@@ -314,7 +314,7 @@ impl Parser {
             }
             else if matches!(op.typ,
                 TokenType::Equal | TokenType::PlusEqual | TokenType::MinusEqual |
-                    TokenType::StarEqual | TokenType::SlashEqual |
+                    TokenType::StarEqual | TokenType::SlashEqual | TokenType::PercentEqual |
                     TokenType::AmpersandEqual | TokenType::PipeEqual |
                     TokenType::CaretEqual |
                     TokenType::LessLessEqual | TokenType::GreaterGreaterEqual
