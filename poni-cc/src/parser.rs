@@ -18,15 +18,12 @@
 
 use std::io::Read;
 
-use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, Token, TokenType}};
+use crate::{ctx::Ctx, lexer::{Lexer, Token, TokenType}};
 use crate::ir::*;
 
 pub struct Parser {
     next_token: Token,
     lexer: Lexer,
-
-    constant_one: StrId,
-    constant_zero: StrId,
 }
 
 impl Parser {
@@ -34,9 +31,6 @@ impl Parser {
         let mut result = Parser {
             next_token: Token { typ: TokenType::Eof, str: None },
             lexer: Lexer::new(input, ctx),
-
-            constant_one: ctx.put_str(b"1"),
-            constant_zero: ctx.put_str(b"0"),
         };
 
         // Prime the parser so it has a legit token.
@@ -176,26 +170,49 @@ impl Parser {
                 // Anyway, for now we'll do it the inefficient way because it's
                 // straightforward to implement.
 
-                let false_label = ctx.label("false");
+                // Note to self: For ||, if we use the same approach as the book,
+                // we will want to do:
+                // v1 = <eval e1>
+                // JumpIfNotZero(v1, true_label)
+                // v2 = <eval e2>
+                // JumpIfNotZero(v2, true_label)
+                // result = 0
+                // Jump(end)
+                // Label(true_label)
+                // result = 1
+                // Label(end)
+
+                let is_or = matches!(op.typ, TokenType::PipePipe);
+
+                let tf_label = ctx.label(if is_or { "true" } else { "false" });
                 let end_label = ctx.label("end");
                 // Right now, we have the lhs evaluated. So, we need to jump_if_zero
                 // to our false label.
-                into.push(Instr::JumpIfZero { condition: lhs, target: false_label });
+                into.push(if is_or {
+                    Instr::JumpIfNotZero { condition: lhs, target: tf_label }
+                } else {
+                    Instr::JumpIfZero { condition: lhs, target: tf_label }
+                });
 
                 // Now we evaluate the rhs. That way, it is NOT evaluated if
                 // we had jumped.
                 let rhs = self.climb_precedence(ctx, into, prec + 1);
-                into.push(Instr::JumpIfZero { condition: rhs, target: false_label });
+                into.push(if is_or {
+                    Instr::JumpIfNotZero { condition: rhs, target: tf_label }
+                } else {
+                    Instr::JumpIfZero { condition: rhs, target: tf_label }
+                });
+
 
                 // Create the true value.
                 let dst = ctx.tmp();
-                into.push(Instr::Copy { src: Val::Constant(self.constant_one), dst });
+                into.push(Instr::Copy { src: Val::Constant(if is_or { ctx.zero() } else { ctx.one() }), dst });
                 // Jump to the end.
                 into.push(Instr::Jump(end_label));
 
                 // Create the false value.
-                into.push(Instr::Label(false_label));
-                into.push(Instr::Copy { src: Val::Constant(self.constant_zero), dst });
+                into.push(Instr::Label(tf_label));
+                into.push(Instr::Copy { src: Val::Constant(if is_or { ctx.one() } else { ctx.zero() }), dst });
                 into.push(Instr::Label(end_label));
 
                 // Make sure to update lhs!
