@@ -1,7 +1,5 @@
 //! Lowering from crate::ir into the x86_64 assembly.
 
-use std::fmt::Binary;
-
 use crate::{ir::{self, BinaryOp}, x86_64::{self, Instr, Operand, Register}};
 
 fn lower_val(val: &ir::Val) -> Operand {

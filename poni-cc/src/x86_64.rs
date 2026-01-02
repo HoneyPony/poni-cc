@@ -216,7 +216,7 @@ impl Instr {
                 // For now, we are always shifting by cl.
                 output.write_all(b"%cl, ")?;
                 dst.write_as_text(ctx, output)?;
-                output.write_all(b"\n");
+                output.write_all(b"\n")?;
             }
         }
 

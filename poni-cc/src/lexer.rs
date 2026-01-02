@@ -144,7 +144,7 @@ impl Lexer {
 
     // TODO: If we just used the panic hook idea, there would be no need fore
     // std::io::Result here, which would actually be very nice.
-    fn match_(&mut self, ctx: &mut Ctx, expected_byte: u8) -> std::io::Result<bool> {
+    fn match_(&mut self, _ctx: &mut Ctx, expected_byte: u8) -> std::io::Result<bool> {
         if self.next_byte == expected_byte {
             self.advance()?;
             return Ok(true);
