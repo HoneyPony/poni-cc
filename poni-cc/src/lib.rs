@@ -24,7 +24,7 @@ pub fn compile(input: Box<dyn Read>, mut output: Box<dyn Write>) -> std::io::Res
     let ir_funs = parser.program(&mut ctx);
     let mut x86_funs = Vec::new();
     for fun in &ir_funs {
-        let mut fun = x86_64::lower_function(fun);
+        let mut fun = x86_64::lower_function(&mut ctx, fun);
         x86_64::replace_psuedoregister_pass(&mut fun);
         x86_64::fixup_pass(&mut fun);
         x86_funs.push(fun);

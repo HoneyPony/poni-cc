@@ -1,6 +1,6 @@
 //! Lowering from crate::ir into the x86_64 assembly.
 
-use crate::{ir::{self, BinaryOp}, x86_64::{self, Instr, Operand, Register}};
+use crate::{ctx::Ctx, ir::{self, BinaryOp}, x86_64::{self, CondCode, Instr, Operand, Register}};
 
 fn lower_val(val: &ir::Val) -> Operand {
     match val {
@@ -13,7 +13,7 @@ fn lower_var(var: &ir::Var) -> Operand {
     Operand::Psuedo(*var)
 }
 
-fn lower(instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
+fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
     match instr {
         ir::Instr::Return(val) => {
             out.push(Instr::Mov { dst: Register::Eax.into(), src: lower_val(val) });
@@ -60,15 +60,28 @@ fn lower(instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
             out.push(Instr::Mov { src: lower_val(lhs), dst });
             out.push(Instr::Binary { op: *op, dst, src: lower_val(rhs) })
         },
-        _ => todo!()
+        ir::Instr::Jump(label) => {
+            out.push(Instr::Jmp(*label));
+        }
+        ir::Instr::JumpIfZero { condition, target } => {
+            out.push(Instr::Cmp { lhs: Operand::Imm(ctx.zero()), rhs: lower_val(condition) });
+            out.push(Instr::JmpCC(CondCode::E, *target));
+        }
+        ir::Instr::JumpIfNotZero { condition, target } => {
+            out.push(Instr::Cmp { lhs: Operand::Imm(ctx.zero()), rhs: lower_val(condition) });
+            out.push(Instr::JmpCC(CondCode::NE, *target));
+        }
+        ir::Instr::Label(label) => {
+            out.push(Instr::Label(*label));
+        }
     }
 }
 
-pub fn lower_function(function: &ir::Function) -> x86_64::Function {
+pub fn lower_function(ctx: &mut Ctx, function: &ir::Function) -> x86_64::Function {
     let mut instrs = Vec::new();
 
     for instr in &function.body {
-        lower(instr, &mut instrs);
+        lower(ctx, instr, &mut instrs);
     }
 
     x86_64::Function { name: function.name, stack_size: 0, instructions: instrs }

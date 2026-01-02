@@ -156,3 +156,13 @@ test_simple_expr!(bitwise_xor_tt, 6, "~~3 ^ ~~5");
 test_simple_expr!(bitwise_lshift_tt, 16, "~~1 << ~~4");
 test_simple_expr!(bitwise_rshift_tt, 77, "~~1234 >> ~~4");
 test_simple_expr!(bitwise_rshift_neg_tt, -78, "~~-1234 >> ~~4");
+
+test_simple_expr!(and_00, 0, "(1 + 1 - 2) && (3 + 3 - 6)");
+test_simple_expr!(and_01, 0, "(1 + 1 - 2) && (3 + 4 - 6)");
+test_simple_expr!(and_10, 0, "(1 + 2 - 2) && (3 + 3 - 6)");
+test_simple_expr!(and_11, 1, "(1 + 2 - 2) && (3 + 4 - 6)");
+
+test_simple_expr!(or_00, 0, "(1 + 1 - 2) || (3 + 3 - 6)");
+test_simple_expr!(or_01, 1, "(1 + 1 - 2) || (3 + 4 - 6)");
+test_simple_expr!(or_10, 1, "(1 + 2 - 2) || (3 + 3 - 6)");
+test_simple_expr!(or_11, 1, "(1 + 2 - 2) || (3 + 4 - 6)");

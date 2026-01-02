@@ -9,13 +9,25 @@ define_arena_key!(StrId);
 pub struct Ctx {
     strs: Arena<String, StrId>,
     str_side_map: HashMap<Vec<u8>, StrId>,
+    label_idx: usize,
+
+    constant_one: StrId,
+    constant_zero: StrId,
 }
 
 impl Ctx {
     pub fn new() -> Self {
+        let mut strs = Arena::new();
+        let constant_one = strs.push("1".into());
+        let constant_zero = strs.push("0".into());
+
         Ctx {
-            strs: Arena::new(),
+            strs,
             str_side_map: HashMap::new(),
+            label_idx: 0,
+
+            constant_one,
+            constant_zero
         }
     }
 
@@ -53,5 +65,21 @@ impl Ctx {
         // map either.
         let id = self.strs.push(String::new());
         id
+    }
+
+    pub fn label(&mut self, prefix: &'static str) -> ir::Label {
+        let id = self.strs.push(format!(".L{}{}", prefix, self.label_idx));
+        self.label_idx += 1;
+        id
+    }
+
+    #[inline(always)]
+    pub fn one(&self) -> StrId {
+        self.constant_one
+    }
+
+    #[inline(always)]
+    pub fn zero(&self) -> StrId {
+        self.constant_zero
     }
 }

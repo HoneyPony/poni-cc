@@ -18,19 +18,25 @@
 
 use std::io::Read;
 
-use crate::{ctx::Ctx, lexer::{Lexer, Token, TokenType}};
+use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, Token, TokenType}};
 use crate::ir::*;
 
 pub struct Parser {
     next_token: Token,
     lexer: Lexer,
+
+    constant_one: StrId,
+    constant_zero: StrId,
 }
 
 impl Parser {
     pub fn new(input: Box<dyn Read>, ctx: &mut Ctx) -> Self {
         let mut result = Parser {
             next_token: Token { typ: TokenType::Eof, str: None },
-            lexer: Lexer::new(input, ctx)
+            lexer: Lexer::new(input, ctx),
+
+            constant_one: ctx.put_str(b"1"),
+            constant_zero: ctx.put_str(b"0"),
         };
 
         // Prime the parser so it has a legit token.
@@ -137,12 +143,72 @@ impl Parser {
 
         while let Some(prec) = self.next_token_precedence() && prec >= min_prec {
             let op = self.advance(ctx);
-            let op = BinaryOp::from(op.typ);
-            let rhs = self.climb_precedence(ctx, into, prec + 1);
-            let dst = ctx.tmp();
 
-            into.push(Instr::Binary { op, dst, lhs, rhs });
-            lhs = dst.into();
+            // Handling for short circuiting operators is special.
+            if matches!(op.typ, TokenType::AmpersandAmpersand | TokenType::PipePipe) {
+                // TODO: We can probably do this in a better way, with maybe
+                // a couple extra IR instructions.
+                //
+                // The approach from the book requires two labels, and one
+                // unconditional jump in the false case. It looks like:
+                // v1 = <eval e1>
+                // JumpIfZero(v1, false_label)
+                // v2 = <eval e2>
+                // JumpIfZero(v2, false_label)
+                // result = 1
+                // Jump(end)
+                // Label(false_label)
+                // result = 0
+                // Label(end)
+                //
+                // But it should be possible to do fewer jumps and labels using
+                // something like:
+                // v1 = <eval e1>
+                // result = !!v1
+                // JumpIfZero(result, end)
+                // v2 = <eval e2>
+                // result = !!v2
+                // Label(end)
+                //
+                // In some cases, this !!v1 could even just directly evaluate
+                // the condition flags, which would be nice.
+                //
+                // Anyway, for now we'll do it the inefficient way because it's
+                // straightforward to implement.
+
+                let false_label = ctx.label("false");
+                let end_label = ctx.label("end");
+                // Right now, we have the lhs evaluated. So, we need to jump_if_zero
+                // to our false label.
+                into.push(Instr::JumpIfZero { condition: lhs, target: false_label });
+
+                // Now we evaluate the rhs. That way, it is NOT evaluated if
+                // we had jumped.
+                let rhs = self.climb_precedence(ctx, into, prec + 1);
+                into.push(Instr::JumpIfZero { condition: rhs, target: false_label });
+
+                // Create the true value.
+                let dst = ctx.tmp();
+                into.push(Instr::Copy { src: Val::Constant(self.constant_one), dst });
+                // Jump to the end.
+                into.push(Instr::Jump(end_label));
+
+                // Create the false value.
+                into.push(Instr::Label(false_label));
+                into.push(Instr::Copy { src: Val::Constant(self.constant_zero), dst });
+                into.push(Instr::Label(end_label));
+
+                // Make sure to update lhs!
+                lhs = dst.into();
+            }
+            else {
+                let op = BinaryOp::from(op.typ);
+                let rhs = self.climb_precedence(ctx, into, prec + 1);
+                let dst = ctx.tmp();
+
+                into.push(Instr::Binary { op, dst, lhs, rhs });
+                lhs = dst.into();
+            }
         }
 
         lhs

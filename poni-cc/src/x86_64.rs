@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, io::Write};
 
-use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, UnaryOp}};
+use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, Label, UnaryOp}};
 
 pub mod lowering;
 pub use lowering::lower_function;
@@ -26,11 +26,39 @@ pub enum Instr {
     // x86 sure is not three address code.
     Binary { op: BinaryOp, dst: Operand, src: Operand },
     Cdq,
+    Cmp { lhs: Operand, rhs: Operand },
+    Jmp(Label),
+    JmpCC(CondCode, Label),
+    SetCC(CondCode, Operand),
     Idiv { rhs: Operand },
     Mov { src: Operand, dst: Operand },
 
     // Shifts by ecx into the dst.
     Shift { op: BinaryOp, dst: Operand },
+
+    Label(Label),
+}
+
+pub enum CondCode {
+    E,
+    NE,
+    L,
+    LE,
+    G,
+    GE
+}
+
+impl CondCode {
+    pub fn as_asm(&self) -> &'static [u8] {
+        match self {
+            CondCode::E  => b"e",
+            CondCode::NE => b"ne",
+            CondCode::L  => b"l",
+            CondCode::LE => b"le",
+            CondCode::G  => b"g",
+            CondCode::GE => b"ge",
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -141,6 +169,14 @@ impl Function {
                 Instr::Shift { dst, .. } => {
                     fun(dst)
                 }
+                Instr::Jmp(_) => {}
+                Instr::Label(_) => {}
+                Instr::JmpCC(..) => {}
+                Instr::SetCC(_, op) => { fun(op); }
+                Instr::Cmp { lhs, rhs } => {
+                    fun(lhs);
+                    fun(rhs);
+                }
             }
         }
     }
@@ -217,6 +253,32 @@ impl Instr {
                 output.write_all(b"%cl, ")?;
                 dst.write_as_text(ctx, output)?;
                 output.write_all(b"\n")?;
+            }
+            Instr::Jmp(label) => {
+                output.write_all(b"\tjmp\t")?;
+                output.write_all(ctx.get(*label).as_bytes())?;
+                output.write_all(b"\n")?;
+            }
+            Instr::JmpCC(cc, label) => {
+                output.write_all(b"\tj")?;
+                output.write_all(cc.as_asm())?;
+                output.write_all(b"\t")?;
+                output.write_all(ctx.get(*label).as_bytes())?;
+                output.write_all(b"\n")?;
+            }
+            Instr::SetCC(cc, dst) => {
+                output.write_all(b"\tset")?;
+                output.write_all(cc.as_asm())?;
+                output.write_all(b"\t")?;
+                dst.write_as_text(ctx, output)?;
+                output.write_all(b"\n")?;
+            }
+            Instr::Cmp { lhs, rhs } => {
+                Self::two_ops(ctx, output, b"\tcmpl\t", rhs, lhs);
+            }
+            Instr::Label(label) => {
+                output.write_all(ctx.get(*label).as_bytes())?;
+                output.write_all(b":\n");
             }
         }
 
@@ -311,6 +373,25 @@ pub fn fixup_pass(fun: &mut Function) {
             Instr::Idiv { rhs: dst @ Operand::Imm(_) } => {
                 new_instrs.push(Instr::Mov { src: dst, dst: Register::R10d.into() });
                 new_instrs.push(Instr::Idiv { rhs: Register::R10d.into() });
+            }
+            Instr::Cmp { mut lhs, mut rhs } => {
+                // There are two fixes here.
+                //
+                // First, if both operands are a stack operand, we replace
+                // the RHS with r10d.
+                //
+                // Second, if the lhs is a constant, we replace it with r11d.
+                if matches!(lhs, Operand::Stack(_)) && matches!(rhs, Operand::Stack(_)) {
+                    new_instrs.push(Instr::Mov { src: rhs, dst: Register::R10d.into() });
+                    rhs = Register::R10d.into();
+                }
+
+                if matches!(lhs, Operand::Imm(_)) {
+                    new_instrs.push(Instr::Mov { src: lhs, dst: Register::R11d.into() });
+                    lhs = Register::R11d.into();
+                }
+
+                new_instrs.push(Instr::Cmp { lhs, rhs });
             }
             instr @ _ => {
                 new_instrs.push(instr);
