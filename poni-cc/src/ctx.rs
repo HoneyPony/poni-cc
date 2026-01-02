@@ -44,15 +44,18 @@ impl Ctx {
     }
 
     pub fn put_and_clear_str(&mut self, str: &mut Vec<u8>) -> StrId {
-        if let Some(existing) = self.str_side_map.get(str) {
-            str.clear();
-            return *existing;
-        }
+        // Taking the str clears it.
+        let take = std::mem::take(str);
 
-        let key = self.strs.push(String::from_utf8_lossy(&str).into_owned());
-        self.str_side_map.insert(std::mem::take(str), key);
+        // Taking it also lets us use the entry API, which should (?) let us
+        // only do one lookup instead of two.
+        let key = self.str_side_map.entry(take)
+            .or_insert_with(|| {
+                let key = self.strs.push(String::from_utf8_lossy(&str).into_owned());
+                key
+            });
 
-        key
+        *key
     }
 
     pub fn get(&self, str: StrId) -> &str {
