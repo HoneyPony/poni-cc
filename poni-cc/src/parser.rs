@@ -140,6 +140,11 @@ impl Parser {
 
         self.expect(ctx, TokenType::RBrace);
 
+        // If the function doesn't terminate with a return statement, add one.
+        if !matches!(instructions.last(), Some(Instr::Return(_))) {
+            instructions.push(Instr::Return(Val::Constant(ctx.zero())));
+        }
+
         // TODO: We probably want to make the ident.str just a property of
         // e.g. TokenType::Identifier, so that we don't have to call .unwrap()
         // here.
