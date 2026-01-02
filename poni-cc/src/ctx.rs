@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use poni_arena::{Arena, define_arena_key};
+use rustc_hash::FxHashMap;
 
 use crate::ir;
 
@@ -8,7 +9,7 @@ define_arena_key!(StrId);
 
 pub struct Ctx {
     strs: Arena<String, StrId>,
-    str_side_map: HashMap<Vec<u8>, StrId>,
+    str_side_map: FxHashMap<Vec<u8>, StrId>,
     label_idx: usize,
 
     constant_one: StrId,
@@ -23,7 +24,7 @@ impl Ctx {
 
         Ctx {
             strs,
-            str_side_map: HashMap::new(),
+            str_side_map: FxHashMap::default(),
             label_idx: 0,
 
             constant_one,
