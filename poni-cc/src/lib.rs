@@ -17,7 +17,7 @@ mod x86_64;
 
 /// Core compiler driver, for now. Takes a reader, which contains (preprocessed)
 /// C code; outputs the generated assembly to the writer.
-pub fn compile(input: Box<dyn Read>, mut output: Box<dyn Write>) -> std::io::Result<()> {
+pub fn compile(input: Box<dyn Read>, mut output: Box<dyn Write>, fastdrop: bool) -> std::io::Result<()> {
     let mut ctx = Ctx::new();
     let mut parser = Parser::new(input, &mut ctx);
 
@@ -35,6 +35,15 @@ pub fn compile(input: Box<dyn Read>, mut output: Box<dyn Write>) -> std::io::Res
         functions: x86_funs
     };
     program.write_as_text(&ctx, &mut output)?;
+    // Make sure output is written.
+    drop(output);
+
+    // To save apparently 8% (!!!) of the runtime with many_vars.c, as of
+    // January 2, 2026, we should just exit the process instead of dropping
+    // the context.
+    if fastdrop {
+        std::process::exit(0);
+    }
 
     Ok(())
 }

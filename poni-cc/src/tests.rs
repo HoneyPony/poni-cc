@@ -43,7 +43,7 @@ fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) 
 
     let stdin = asm.stdin.take().unwrap();
     let output = Cursor::new(output);
-    crate::compile(Box::new(output), Box::new(stdin))
+    crate::compile(Box::new(output), Box::new(stdin), true)
         .unwrap();
 
     asm.wait().unwrap();
