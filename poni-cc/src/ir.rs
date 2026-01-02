@@ -24,9 +24,20 @@ pub enum Instr {
         src: Val,
         dst: Var,
     },
+    Jump(Label),
+    JumpIfZero {
+        condition: Val,
+        target: Label,
+    },
+    JumpIfNotZero {
+        condition: Val,
+        target: Label,
+    },
+    Label(Label),
 }
 
 pub type Var = StrId;
+pub type Label = StrId;
 
 #[derive(Clone, Copy)]
 pub enum Val {

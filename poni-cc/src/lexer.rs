@@ -36,6 +36,8 @@ pub enum TokenType {
 
     Semicolon = b';',
 
+    Bang    = b'!',
+    Equal   = b'=',
     Plus    = b'+',
     Minus   = b'-',
     Star    = b'*',
@@ -48,6 +50,9 @@ pub enum TokenType {
     Less      = b'<',
     Greater   = b'>',
     
+    BangEqual,
+    EqualEqual,
+
     PlusPlus,
     MinusMinus,
 
@@ -56,6 +61,9 @@ pub enum TokenType {
 
     LessLess,
     GreaterGreater,
+
+    LessEqual,
+    GreaterEqual,
 
     Eof,
 }
@@ -73,6 +81,8 @@ impl TokenType {
             TokenType::LBrace => "'{'",
             TokenType::RBrace => "'}'",
             TokenType::Semicolon => "';'",
+            TokenType::Bang    => "'!'",
+            TokenType::Equal   => "'='",
             TokenType::Tilde   => "'~'",
             TokenType::Plus    => "'+'",
             TokenType::Minus   => "'-'",
@@ -84,12 +94,16 @@ impl TokenType {
             TokenType::Caret     => "'^'",
             TokenType::Less      => "'<'",
             TokenType::Greater   => "'>'",
+            TokenType::BangEqual => "'!='",
+            TokenType::EqualEqual => "'=='",
             TokenType::PlusPlus => "'++'",
             TokenType::MinusMinus => "'--'",
             TokenType::AmpersandAmpersand => "'&&'",
             TokenType::PipePipe => "'||'",
             TokenType::LessLess => "'<<'",
             TokenType::GreaterGreater => "'>>'",
+            TokenType::LessEqual => "'<='",
+            TokenType::GreaterEqual => "'>='",
             TokenType::Eof => "<eof>",
         }
     }
@@ -231,6 +245,10 @@ impl Lexer {
             b';' => self.token(TokenType::Semicolon),
             b'~' => self.token(TokenType::Tilde),
             b'^' => self.token(TokenType::Caret),
+            b'=' => self.choose_match_one(ctx, b'=',
+                TokenType::EqualEqual, TokenType::Equal)?,
+            b'!' => self.choose_match_one(ctx, b'=',
+                TokenType::BangEqual, TokenType::Bang)?,
             b'-' => self.choose_match_one(ctx, b'-',
                 TokenType::MinusMinus, TokenType::Minus)?,
             b'+' => self.choose_match_one(ctx, b'+',
@@ -240,10 +258,30 @@ impl Lexer {
             b'|' => self.choose_match_one(ctx, b'|',
                 TokenType::PipePipe, TokenType::Pipe)?,
             // TODO: Also handle <= and >=
-            b'<' => self.choose_match_one(ctx, b'<',
-                TokenType::LessLess, TokenType::Less)?,
-            b'>' => self.choose_match_one(ctx, b'>',
-                TokenType::GreaterGreater, TokenType::Greater)?,
+            b'<' => match self.next_byte {
+                b'<' => {
+                    self.advance()?;
+                    self.token(TokenType::LessLess)
+                }
+                b'=' => {
+                    self.advance()?;
+                    self.token(TokenType::LessEqual)
+                }
+                // Don't advance.
+                _ => self.token(TokenType::Less)
+            }
+            b'>' => match self.next_byte {
+                b'>' => {
+                    self.advance()?;
+                    self.token(TokenType::GreaterGreater)
+                }
+                b'=' => {
+                    self.advance()?;
+                    self.token(TokenType::GreaterEqual)
+                }
+                // Don't advance.
+                _ => self.token(TokenType::Greater)
+            }
             b'*' => self.token(TokenType::Star),
             // TODO: Handle comments.
             b'/' => self.token(TokenType::Slash),

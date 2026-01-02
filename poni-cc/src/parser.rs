@@ -118,13 +118,13 @@ impl Parser {
             // Comma => 0
             // Assignment => 5
             // Ternary => 10
-            // || => 15
-            // && => 20
+            TokenType::PipePipe => Some(15),
+            TokenType::AmpersandAmpersand => Some(20),
             TokenType::Pipe => Some(25),
             TokenType::Caret => Some(30),
             TokenType::Ampersand => Some(35),
-            // == & != => Some(40)
-            // relation operators => Some(45)
+            TokenType::EqualEqual | TokenType::BangEqual => Some(40),
+            TokenType::Less | TokenType::LessEqual | TokenType::Greater | TokenType::GreaterEqual => Some(45),
             TokenType::LessLess | TokenType::GreaterGreater => Some(50),
             TokenType::Plus | TokenType::Minus => Some(55),
             TokenType::Star | TokenType::Slash | TokenType::Percent => Some(60),
