@@ -153,7 +153,7 @@ const STRKEY_SIZE: usize = 11;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StrKey {
     Id(StrId),
-    Bytes(NonZeroU8, [u8; STRKEY_SIZE])
+    Bytes(NonZeroU8, [u8; STRKEY_SIZE]),
 }
 
 impl StrKey {
