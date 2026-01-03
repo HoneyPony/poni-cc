@@ -16,7 +16,7 @@
 //! code from other applications. I'm not sure exactly how that should fit in;
 //! perhaps the Parser calls into something else..?
 
-use std::io::Read;
+use std::io::{Read, Write};
 
 use rustc_hash::FxHashMap;
 
@@ -42,14 +42,14 @@ impl VarScope {
     }
 }
 
-pub struct Parser {
+pub struct Parser<R: Read> {
     next_token: Token,
-    lexer: Lexer,
+    lexer: Lexer<R>,
     variables: Vec<VarScope>,
 }
 
-impl Parser {
-    pub fn new(input: Box<dyn Read>, ctx: &mut Ctx) -> Self {
+impl<R: Read> Parser<R> {
+    pub fn new(input: R, ctx: &mut Ctx) -> Self {
         let mut result = Parser {
             next_token: Token { typ: TokenType::Eof, str: None },
             lexer: Lexer::new(input, ctx),

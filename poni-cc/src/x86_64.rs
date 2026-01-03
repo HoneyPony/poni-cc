@@ -132,7 +132,7 @@ macro_rules! cwriteln {
 }
 
 impl Program {
-    pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
+    pub fn write_as_text<W: Write>(&self, ctx: &Ctx, output: &mut W) -> std::io::Result<()> {
         for fun in &self.functions {
             fun.write_as_text(ctx, output)?;
         }
@@ -145,7 +145,7 @@ impl Program {
 }
 
 impl Function {
-    pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
+    pub fn write_as_text<W: Write>(&self, ctx: &Ctx, output: &mut W) -> std::io::Result<()> {
         cwriteln!(output, ".globl {}", ctx.get(self.name));
         cwriteln!(output, "{}:", ctx.get(self.name));
 
@@ -202,7 +202,7 @@ impl Function {
 }
 
 impl Instr {
-    fn two_ops(ctx: &Ctx, output: &mut Box<dyn Write>, str: &'static [u8], a: &Operand, b: &Operand) -> std::io::Result<()> {
+    fn two_ops<W: Write>(ctx: &Ctx, output: &mut W, str: &'static [u8], a: &Operand, b: &Operand) -> std::io::Result<()> {
         output.write_all(str)?;
 
         a.write_as_text(ctx, output)?;
@@ -213,7 +213,7 @@ impl Instr {
         Ok(())
     }
 
-    fn one_op(ctx: &Ctx, output: &mut Box<dyn Write>, str: &'static [u8], a: &Operand) -> std::io::Result<()> {
+    fn one_op<W: Write>(ctx: &Ctx, output: &mut W, str: &'static [u8], a: &Operand) -> std::io::Result<()> {
         output.write_all(str)?;
 
         a.write_as_text(ctx, output)?;
@@ -222,7 +222,7 @@ impl Instr {
         Ok(())
     }
 
-    pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
+    pub fn write_as_text<W: Write>(&self, ctx: &Ctx, output: &mut W) -> std::io::Result<()> {
         match self {
             Instr::Ret => {
                 // TODO: This will depend on the stack frame. Annoying...
@@ -307,7 +307,7 @@ impl Instr {
 }
 
 impl Operand {
-    pub fn write_as_text(&self, ctx: &Ctx, output: &mut Box<dyn Write>) -> std::io::Result<()> {
+    pub fn write_as_text<W: Write>(&self, ctx: &Ctx, output: &mut W) -> std::io::Result<()> {
         match self {
             Operand::Reg(register, size) => { output.write_all(register.as_asm(*size))?; }
             Operand::Imm(str_id) => {

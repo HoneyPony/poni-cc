@@ -4,15 +4,15 @@
 //! strings, which are then matched against keywords. Then, operators and other
 //! special characters are handled specially.
 
-use std::io::Read;
+use std::io::{Read, Write};
 
 use crate::ctx::{Ctx, StrId};
 
-pub struct Lexer {
+pub struct Lexer<R: Read> {
     next_byte: u8,
     at_eof: bool,
 
-    input: Box<dyn Read>,
+    input: R,
 
     next_buf: Vec<u8>,
 
@@ -149,8 +149,8 @@ pub struct Token {
     pub str: Option<StrId>,
 }
 
-impl Lexer {
-    pub fn new(input: Box<dyn Read>, ctx: &mut Ctx) -> Self {
+impl<R: Read> Lexer<R> {
+    pub fn new(input: R, ctx: &mut Ctx) -> Self {
         Lexer {
             next_byte: b' ',
             at_eof: false,

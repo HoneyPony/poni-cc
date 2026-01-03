@@ -17,7 +17,11 @@ mod x86_64;
 
 /// Core compiler driver, for now. Takes a reader, which contains (preprocessed)
 /// C code; outputs the generated assembly to the writer.
-pub fn compile(input: Box<dyn Read>, mut output: Box<dyn Write>, fastdrop: bool) -> std::io::Result<()> {
+pub fn compile<R, W>(input: R, mut output: W, fastdrop: bool) -> std::io::Result<()>
+where
+    R: Read,
+    W: Write
+{
     let mut ctx = Ctx::new();
     let mut parser = Parser::new(input, &mut ctx);
 

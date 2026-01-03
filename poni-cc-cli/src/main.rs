@@ -23,7 +23,7 @@ fn compile(args: &Cli) -> std::io::Result<()> {
     let buf_read = BufReader::new(input);
     let buf_write = BufWriter::new(output);
 
-    poni_cc::compile(Box::new(buf_read), Box::new(buf_write), true)?;
+    poni_cc::compile(buf_read, buf_write, true)?;
 
     Ok(())
 }
