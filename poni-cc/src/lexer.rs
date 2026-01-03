@@ -143,19 +143,21 @@ impl std::fmt::Display for TokenType {
     }
 }
 
+const STRKEY_SIZE: usize = 11;
+
 /// A key, sort of like StrId, except that can store small strings inline.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StrKey {
     Id(StrId),
-    Bytes(NonZeroU8, [u8; 11])
+    Bytes(NonZeroU8, [u8; STRKEY_SIZE])
 }
 
 impl StrKey {
     pub fn from_known_bytes(bytes: &[u8]) -> StrKey {
         let len = bytes.len();
-        assert!(len <= 11);
+        assert!(len <= STRKEY_SIZE);
 
-        let mut key = [0u8; 11];
+        let mut key = [0u8; STRKEY_SIZE];
         let subslice = &mut key[0..len];
 
         let len = len as u8;
@@ -218,12 +220,12 @@ impl<R: Read> Lexer<R> {
     }
 
     fn str_from_buf(&mut self, ctx: &mut Ctx) -> StrKey {
-        if self.next_buf.len() <= 11 {
+        if self.next_buf.len() <= STRKEY_SIZE {
             // Safe because we've checked its less than 11
             let len_us = self.next_buf.len();
             let len = len_us as u8;
             if let Ok(nonzero) = NonZeroU8::try_from(len) {
-                let mut buf: [u8; 11] = [0; 11];
+                let mut buf: [u8; STRKEY_SIZE] = [0; STRKEY_SIZE];
                 let subslice = &mut buf[0..len_us];
                 subslice.copy_from_slice(&self.next_buf);
 
