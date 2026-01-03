@@ -206,7 +206,7 @@ impl Instr {
         output.write_all(str)?;
 
         a.write_as_text(ctx, output)?;
-        output.write_all(b", ")?;
+        output.write_all(b",")?;
         b.write_as_text(ctx, output)?;
         output.write_all(b"\n")?;
 

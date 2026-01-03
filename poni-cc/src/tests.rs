@@ -43,7 +43,11 @@ fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) 
 
     let stdin = asm.stdin.take().unwrap();
     let output = Cursor::new(output);
-    crate::compile(Box::new(output), Box::new(stdin), true)
+
+    // We can't use fastdrop here. In particular, the application needs to keep
+    // living long enough for the code to finish compiling, and for us to
+    // run the tester program.
+    crate::compile(output, stdin, false)
         .unwrap();
 
     asm.wait().unwrap();
