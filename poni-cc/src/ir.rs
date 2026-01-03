@@ -12,6 +12,11 @@ pub enum Instr {
         // One reason to have separate src/dst here is for architectures like
         // aarch64, where we could e.g. re-use the non-negated value later.
         // Hmm...
+        //
+        // The other reason, apparently, is because we don't want to accidentally
+        // overwrite an existing variable. Although this might only be a problem
+        // with how we implemented !. Either way, back to the old model.
+        src: Val,
         dst: Var,
     },
     Binary {

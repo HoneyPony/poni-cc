@@ -34,15 +34,19 @@ fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
             out.push(Instr::Mov { dst: Register::Eax.into(), src: lower_val(val) });
             out.push(Instr::Ret);
         }
-        ir::Instr::Unary { op, dst } => {
+        ir::Instr::Unary { op, src, dst } => {
             if *op == UnaryOp::Not {
                 // Special handling.
                 let dst = lower_var(dst);
-                out.push(Instr::Cmp { lhs: dst, rhs: Operand::Imm(ctx.zero()) });
+                out.push(Instr::Cmp { lhs: lower_val(src), rhs: Operand::Imm(ctx.zero()) });
                 out.push(Instr::Mov { dst, src: Operand::Imm(ctx.zero()) });
                 out.push(Instr::SetCC(CondCode::E, dst));
                 return;
             }
+
+            // We would like to get rid of the Mov where possible, as it's
+            // pretty useless...
+            out.push(Instr::Mov { src: lower_val(src), dst: lower_var(dst) });
             out.push(Instr::Unary { op: *op, operand: lower_var(dst) })
         }
         ir::Instr::Copy { src, dst } => {

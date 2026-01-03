@@ -458,9 +458,15 @@ impl<R: Read> Parser<R> {
                 // src must be evaluated first
                 let src = self.factor(ctx, into);
 
-                let dst = Self::promote_to_var(src, ctx, into);
+                // This might work if it were 'promote_to_temporary_var'
+                // instead. But for now, we will just always create a new
+                // dst var. This is less efficient, but we have ways to deal
+                // with that (?)
+                // let dst = Self::promote_to_var(src, ctx, into);
+
                 let op = UnaryOp::from(op);
-                into.push(Instr::Unary { op, dst });
+                let dst = ctx.tmp();
+                into.push(Instr::Unary { op, dst, src });
 
                 dst.into()
             },
