@@ -14,7 +14,7 @@ pub struct Lexer<R: Read> {
 
     input: R,
 
-    internal_buffer: [u8; 512],
+    internal_buffer: [u8; INTERNAL_BUFFER_SIZE],
     internal_buf_len: usize,
     internal_buf_ptr: usize,
 
@@ -173,6 +173,8 @@ impl StrKey {
     }
 }
 
+const INTERNAL_BUFFER_SIZE: usize = 512;
+
 impl<R: Read> Lexer<R> {
     pub fn new(input: R, ctx: &mut Ctx) -> Self {
         Lexer {
@@ -181,7 +183,7 @@ impl<R: Read> Lexer<R> {
 
             input,
 
-            internal_buffer: [0; 512],
+            internal_buffer: [0; INTERNAL_BUFFER_SIZE],
             internal_buf_len: 0,
             internal_buf_ptr: 0,
 
