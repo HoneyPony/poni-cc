@@ -7,6 +7,7 @@ use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, Label, UnaryOp}};
 pub mod lowering;
 pub use lowering::lower_function;
 use poni_arena::ArenaKey;
+use rustc_hash::FxHashMap;
 
 pub struct Program {
     pub functions: Vec<Function>,
@@ -339,7 +340,7 @@ pub fn replace_psuedoregister_pass(fun: &mut Function) {
     // could be a flat array indexed from 0. Then, doing this kind of pass
     // could use that same array, which would probably be much faster than
     // a HashMap.
-    let mut map: HashMap<StrId, i32> = HashMap::new();
+    let mut map: FxHashMap<StrId, i32> = FxHashMap::default();
 
     fun.operand_pass(|op: &mut Operand| {
         match op {
