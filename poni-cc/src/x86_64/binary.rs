@@ -70,7 +70,9 @@ struct Opcodes {
 struct SpecialBytes {
     rex: u8,
     modrm: u8,
-    sib: Option<(u8, u32)>,
+    disp: [u8; 4],
+    disp_len: u8,
+    //sib: Option<(u8, u32)>,
     operand: Option<u32>,
 }
 
@@ -80,7 +82,10 @@ fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: u8, imm: i32) -> Speci
     let mut mod_ = 0b00u8;
     let mut rm   = 0b000u8;
 
-    let mut sib = None;
+    let mut disp: [u8; 4] = [0; 4];
+    let mut disp_len = 0;
+
+    //let mut sib = None;
 
     // TODO: We will also need to use rex to index byte registers sometimes.
     let mut rex = REX_EMPTY;
@@ -92,17 +97,35 @@ fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: u8, imm: i32) -> Speci
         },
         Operand::Stack(offset) => {
             // Always use SIB with disp32?
-            mod_ = 0b10;
-            rm = 0b100;
+            // mod_ = 0b10;
+            // rm = 0b100;
 
-            let sib_byte = 
-                  0b00  << 6 // scale doesn't matter, we don't index
-                | 0b100 << 3 // index is 0b100 = esp = don't have an index.
-                | 0b101;     // always use RBP as the base.
+            // let sib_byte = 
+            //       0b00  << 6 // scale doesn't matter, we don't index
+            //     | 0b100 << 3 // index is 0b100 = esp = don't have an index.
+            //     | 0b101;     // always use RBP as the base.
             
-            let sib_offset = *offset as u32;
+            // let sib_offset = *offset as u32;
 
-            sib = Some((sib_byte, sib_offset))
+            // sib = Some((sib_byte, sib_offset))
+
+            // For now, we use either EBP + disp8 or EBP + disp32, depending on
+            // the size of the offset.
+            //
+            // We could also considering using a SIB when it seems relevant.
+            //
+            // (Note that we can't use EBP + disp0 as that has special meaning.)
+            rm = 0b101; // use ebp
+            if *offset <= 127 && *offset >= -128 {
+                mod_ = 0b01; // ebp + disp8
+                disp[0] = *offset as u8;
+                disp_len = 1;
+            }
+            else {
+                mod_ = 0b10; // ebp + disp32
+                disp.copy_from_slice(&offset.to_le_bytes());
+                disp_len = 4;
+            }
         },
         _ => unreachable!()
     }
@@ -110,7 +133,8 @@ fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: u8, imm: i32) -> Speci
     SpecialBytes {
         rex,
         modrm: mod_ << 6 | reg_field << 3 | rm,
-        sib,
+        disp,
+        disp_len,
         operand: Some(imm as u32)
     }
 }
@@ -120,7 +144,10 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
     let mut reg  = 0b000u8;
     let mut rm   = 0b000u8;
 
-    let mut sib = None;
+    let mut disp: [u8; 4] = [0; 4];
+    let mut disp_len = 0;
+
+    //let mut sib = None;
 
     // TODO: We will also need to use rex to index byte registers sometimes.
     let mut rex = REX_EMPTY;
@@ -131,18 +158,31 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
             rex |= r.high_bit();
         },
         Operand::Stack(offset) => {
-            // Always use SIB with disp32?
-            mod_ = 0b10;
-            rm = 0b100;
+            // // Always use SIB with disp32?
+            // mod_ = 0b10;
+            // rm = 0b100;
 
-            let sib_byte = 
-                  0b00  << 6 // scale doesn't matter, we don't index
-                | 0b100 << 3 // index is 0b100 = esp = don't have an index.
-                | 0b101;     // always use RBP as the base.
+            // let sib_byte = 
+            //       0b00  << 6 // scale doesn't matter, we don't index
+            //     | 0b100 << 3 // index is 0b100 = esp = don't have an index.
+            //     | 0b101;     // always use RBP as the base.
             
-            let sib_offset = *offset as u32;
+            // let sib_offset = *offset as u32;
 
-            sib = Some((sib_byte, sib_offset))
+            // sib = Some((sib_byte, sib_offset))
+
+            // Same as above.
+            rm = 0b101; // use ebp
+            if *offset <= 127 && *offset >= -128 {
+                mod_ = 0b01; // ebp + disp8
+                disp[0] = *offset as u8;
+                disp_len = 1;
+            }
+            else {
+                mod_ = 0b10; // ebp + disp32
+                disp.copy_from_slice(&offset.to_le_bytes());
+                disp_len = 4;
+            }
         },
         _ => unreachable!()
     }
@@ -156,7 +196,7 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
         _ => unreachable!()
     }
 
-    SpecialBytes { rex, modrm: mod_ << 6 | reg << 3 | rm, sib, operand: None }
+    SpecialBytes { rex, modrm: mod_ << 6 | reg << 3 | rm, disp, disp_len, operand: None }
 }
 
 fn do_write_imm(opcode: &[u8], reg_field: u8, mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
@@ -167,11 +207,8 @@ fn do_write_imm(opcode: &[u8], reg_field: u8, mem_reg_op: &Operand, imm_op: i32,
     }
     binary.text.extend_from_slice(opcode);
     binary.text.push(bytes.modrm);
-    
-    if let Some(sib) = bytes.sib {
-        binary.text.push(sib.0);
-        binary.text.extend_from_slice(&sib.1.to_le_bytes());
-    }
+
+    binary.text.extend_from_slice(&bytes.disp[0..bytes.disp_len as usize]);
 
     if let Some(op) = bytes.operand {
         binary.text.extend_from_slice(&op.to_le_bytes());
@@ -187,10 +224,7 @@ fn do_write(opcode: &[u8], mem_reg_op: &Operand, reg_op: &Operand, binary: &mut 
     binary.text.extend_from_slice(opcode);
     binary.text.push(bytes.modrm);
     
-    if let Some(sib) = bytes.sib {
-        binary.text.push(sib.0);
-        binary.text.extend_from_slice(&sib.1.to_le_bytes());
-    }
+    binary.text.extend_from_slice(&bytes.disp[0..bytes.disp_len as usize]);
 }
 
 /// Helper function for writing the following combinations in x86:
