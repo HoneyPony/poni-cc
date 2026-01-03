@@ -170,28 +170,29 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    fn advance(&mut self) -> std::io::Result<u8> {
+    fn advance(&mut self) -> u8 {
         let result = self.next_byte;
         self.next_buf.push(result);
 
         let mut buf = [0];
-        match self.input.read(&mut buf)? {
+        // NOTE: We need to implement backtracking support or w/e for the panic.
+        match self.input.read(&mut buf).unwrap() {
             0 => self.at_eof = true,
             _ => {}
         }
         self.next_byte = buf[0];
 
-        Ok(result)
+        result
     }
 
     // TODO: If we just used the panic hook idea, there would be no need fore
     // std::io::Result here, which would actually be very nice.
-    fn match_(&mut self, _ctx: &mut Ctx, expected_byte: u8) -> std::io::Result<bool> {
+    fn match_(&mut self, _ctx: &mut Ctx, expected_byte: u8) -> bool {
         if self.next_byte == expected_byte {
-            self.advance()?;
-            return Ok(true);
+            self.advance();
+            return true;
         }
-        return Ok(false)
+        return false
     }
 
     #[inline(always)]
@@ -210,18 +211,18 @@ impl<R: Read> Lexer<R> {
         }
     }
 
-    fn number(&mut self, ctx: &mut Ctx) -> std::io::Result<Token> {
+    fn number(&mut self, ctx: &mut Ctx) -> Token {
         while self.next_byte.is_ascii_digit() {
-            self.advance()?;
+            self.advance();
         }
 
         // For now, we are only doing integers.
-        Ok(self.token_from_buf(ctx, TokenType::Constant))
+        self.token_from_buf(ctx, TokenType::Constant)
     }
 
-    fn identifier(&mut self, ctx: &mut Ctx) -> std::io::Result<Token> {
+    fn identifier(&mut self, ctx: &mut Ctx) -> Token {
         while self.next_byte.is_ascii_alphanumeric() || self.next_byte == b'_' {
-            self.advance()?;
+            self.advance();
         }
 
         let mut tok = self.token_from_buf(ctx, TokenType::Identifier);
@@ -229,20 +230,20 @@ impl<R: Read> Lexer<R> {
         for key in &self.keyword_map {
             if tok.str == Some(key.0) {
                 tok.typ = key.1;
-                return Ok(tok);
+                return tok;
             }
         }
 
-        Ok(tok)
+        tok
     }
 
     #[inline(always)]
-    fn choose_match_one(&mut self, ctx: &mut Ctx, expected_byte: u8, if_matches: TokenType, if_not: TokenType) -> std::io::Result<Token> {
-        if self.match_(ctx, expected_byte)? {
-            Ok(self.token(if_matches))
+    fn choose_match_one(&mut self, ctx: &mut Ctx, expected_byte: u8, if_matches: TokenType, if_not: TokenType) -> Token {
+        if self.match_(ctx, expected_byte) {
+            self.token(if_matches)
         }
         else {
-            Ok(self.token(if_not))
+            self.token(if_not)
         }
     }
 
@@ -253,26 +254,26 @@ impl<R: Read> Lexer<R> {
     //    _    => Plus,
     // })
     #[inline(always)]
-    fn choose_match_two(&mut self, ctx: &mut Ctx, default: TokenType, a: u8, atype: TokenType, b: u8, btype: TokenType) -> std::io::Result<Token> {
+    fn choose_match_two(&mut self, ctx: &mut Ctx, default: TokenType, a: u8, atype: TokenType, b: u8, btype: TokenType) -> Token {
         let typ = match self.next_byte {
             n if n == a => {
-                self.advance()?;
+                self.advance();
                 atype
             }
             n if n == b => {
-                self.advance()?;
+                self.advance();
                 btype
             }
             _ => {
                 default
             }
         };
-        Ok(self.token(typ))
+        self.token(typ)
     }
 
-    pub fn next(&mut self, ctx: &mut Ctx) -> std::io::Result<Token> {
+    pub fn next(&mut self, ctx: &mut Ctx) -> Token {
         while self.next_byte.is_ascii_whitespace() {
-            self.advance()?;
+            self.advance();
         }
 
         self.next_buf.clear();
@@ -286,7 +287,7 @@ impl<R: Read> Lexer<R> {
         }
 
         // Always consume at least one character, so that we make forward progress.
-        Ok(match self.advance()? {
+        match self.advance() {
             // The idea here is that our token representation should allow
             // for this to be very fast. It is essentially loading a single
             // 64-bit constant (?).
@@ -297,40 +298,40 @@ impl<R: Read> Lexer<R> {
             b';' => self.token(TokenType::Semicolon),
             b'~' => self.token(TokenType::Tilde),
             b'^' => self.choose_match_one(ctx, b'=',
-                TokenType::CaretEqual, TokenType::Caret)?,
+                TokenType::CaretEqual, TokenType::Caret),
             b'=' => self.choose_match_one(ctx, b'=',
-                TokenType::EqualEqual, TokenType::Equal)?,
+                TokenType::EqualEqual, TokenType::Equal),
             b'!' => self.choose_match_one(ctx, b'=',
-                TokenType::BangEqual, TokenType::Bang)?,
+                TokenType::BangEqual, TokenType::Bang),
             b'-' => self.choose_match_two(ctx, TokenType::Minus,
                 b'-', TokenType::MinusMinus,
-                b'=', TokenType::MinusEqual)?,
+                b'=', TokenType::MinusEqual),
             b'+' => self.choose_match_two(ctx, TokenType::Plus,
                 b'+', TokenType::PlusPlus,
-                b'=', TokenType::PlusEqual)?,
+                b'=', TokenType::PlusEqual),
             b'&' => self.choose_match_two(ctx, TokenType::Ampersand,
                 b'&', TokenType::AmpersandAmpersand,
-                b'=', TokenType::AmpersandEqual)?,
+                b'=', TokenType::AmpersandEqual),
             b'|' => self.choose_match_two(ctx, TokenType::Pipe,
                 b'|', TokenType::PipePipe,
-                b'=', TokenType::PipeEqual)?,
+                b'=', TokenType::PipeEqual),
             b'*' => self.choose_match_one(ctx, b'=',
-                TokenType::StarEqual, TokenType::Star)?,
+                TokenType::StarEqual, TokenType::Star),
             b'%' => self.choose_match_one(ctx, b'=',
-                TokenType::PercentEqual, TokenType::Percent)?,
+                TokenType::PercentEqual, TokenType::Percent),
 
             // TODO: Handle comments.
             b'/' => self.choose_match_one(ctx, b'=',
-                TokenType::SlashEqual, TokenType::Slash)?,
+                TokenType::SlashEqual, TokenType::Slash),
 
             b'<' => match self.next_byte {
                 b'<' => {
-                    self.advance()?;
+                    self.advance();
                     self.choose_match_one(ctx, b'=',
-                        TokenType::LessLessEqual, TokenType::LessLess)?
+                        TokenType::LessLessEqual, TokenType::LessLess)
                 }
                 b'=' => {
-                    self.advance()?;
+                    self.advance();
                     self.token(TokenType::LessEqual)
                 }
                 // Don't advance.
@@ -339,12 +340,12 @@ impl<R: Read> Lexer<R> {
 
             b'>' => match self.next_byte {
                 b'>' => {
-                    self.advance()?;
+                    self.advance();
                     self.choose_match_one(ctx, b'=',
-                        TokenType::GreaterGreaterEqual, TokenType::GreaterGreater)?
+                        TokenType::GreaterGreaterEqual, TokenType::GreaterGreater)
                 }
                 b'=' => {
-                    self.advance()?;
+                    self.advance();
                     self.token(TokenType::GreaterEqual)
                 }
                 // Don't advance.
@@ -353,13 +354,13 @@ impl<R: Read> Lexer<R> {
 
             _ => {
                 if self.at_eof {
-                    return Ok(self.token(TokenType::Eof));
+                    return self.token(TokenType::Eof);
                 }
                 // TODO: Honestly, panicking is likely the fastest way to
                 // handle ALL the errors? Maybe we can set up a panic hook
                 // and then eschew most other error handling?
                 panic!("unrecognized character");
             }
-        })
+        }
     }
 }

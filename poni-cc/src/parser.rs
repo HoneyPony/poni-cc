@@ -64,7 +64,7 @@ impl<R: Read> Parser<R> {
 
     fn advance(&mut self, ctx: &mut Ctx) -> Token {
         let result = self.next_token;
-        self.next_token = self.lexer.next(ctx).unwrap();
+        self.next_token = self.lexer.next(ctx);
 
         result
     }
