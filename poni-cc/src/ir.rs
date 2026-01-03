@@ -131,6 +131,9 @@ impl BinaryOp {
             TokenType::Slash   | TokenType::SlashEqual   => BinaryOp::Divide   ,
             TokenType::Percent | TokenType::PercentEqual => BinaryOp::Remainder,
 
+            TokenType::PlusPlus   => BinaryOp::Add,
+            TokenType::MinusMinus => BinaryOp::Subtract,
+
             // Bitwise operations
             TokenType::Ampersand      | TokenType::AmpersandEqual      => BinaryOp::And,
             TokenType::Pipe           | TokenType::PipeEqual           => BinaryOp::Or,

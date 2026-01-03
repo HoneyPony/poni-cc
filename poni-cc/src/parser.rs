@@ -368,7 +368,41 @@ impl<R: Read> Parser<R> {
         lhs
     }
 
+    /// Like atom, but with postfix operators.
+    /// 
+    /// We may change how this works in the future, to support multiple postfix
+    /// operators? Maybe just have that logic also in climb_precedence?
     pub fn factor(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
+        let atom = self.atom(ctx, into);
+
+        if matches!(self.next_token.typ, TokenType::PlusPlus | TokenType::MinusMinus) {
+            let op = self.advance(ctx);
+
+            let Val::LValue(var) = atom else {
+                panic!("expected lvalue");
+            };
+
+            let tmp = ctx.tmp();
+            into.push(Instr::Copy {
+                dst: tmp,
+                src: atom
+            });
+
+            into.push(Instr::Binary {
+                op: BinaryOp::from(op.typ),
+                dst: var,
+                lhs: atom,
+                rhs: Val::Constant(ctx.one())
+            });
+
+            // We keep the value before the increment.
+            return tmp.into();
+        }
+
+        return atom;
+    }
+
+    pub fn atom(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
         match self.next_token.typ {
             TokenType::Constant => {
                 let value = self.advance(ctx);
@@ -430,6 +464,25 @@ impl<R: Read> Parser<R> {
 
                 dst.into()
             },
+            op @ (TokenType::PlusPlus | TokenType::MinusMinus) => {
+                self.advance(ctx);
+
+                let target = self.factor(ctx, into);
+                let Val::LValue(var) = target else {
+                    panic!("expected lvalue");
+                };
+
+                into.push(Instr::Binary {
+                    op: BinaryOp::from(op),
+                    dst: var,
+                    lhs: target,
+                    rhs: Val::Constant(ctx.one())
+                });
+
+                // We keep the same value as we just created, except it cannot
+                // be an LValue anymore.
+                target.to_rvalue()
+            }
             TokenType::LParen => {
                 self.advance(ctx);
 

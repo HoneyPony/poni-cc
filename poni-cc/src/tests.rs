@@ -321,3 +321,87 @@ test_no_cpp!(assign_compound3_tt, 155, br"int main(void) {
 
     return a + b + c + d;
 }");
+
+test_no_cpp!(increment_pre, 12, br"int main(void) {
+    int a = 5;
+    int b = ++a;
+
+    return a + b;
+}");
+
+test_no_cpp!(increment_post, 11, br"int main(void) {
+    int a = 5;
+    int b = a++;
+
+    return a + b;
+}");
+
+test_no_cpp!(decrement_pre, 8, br"int main(void) {
+    int a = 5;
+    int b = --a;
+
+    return a + b;
+}");
+
+test_no_cpp!(decrement_post, 9, br"int main(void) {
+    int a = 5;
+    int b = a--;
+
+    return a + b;
+}");
+
+test_no_cpp!(increment_pre_tt, 12, br"int main(void) {
+    int a = ~~5;
+    int b = ~~++a;
+
+    return a + b;
+}");
+
+test_no_cpp!(increment_post_tt, 11, br"int main(void) {
+    int a = ~~5;
+    int b = ~~a++;
+
+    return a + b;
+}");
+
+test_no_cpp!(decrement_pre_tt, 8, br"int main(void) {
+    int a = ~~5;
+    int b = ~~--a;
+
+    return a + b;
+}");
+
+test_no_cpp!(decrement_post_tt, 9, br"int main(void) {
+    int a = ~~5;
+    int b = ~~a--;
+
+    return a + b;
+}");
+
+test_no_cpp!(increment_pre_tt_parens, 12, br"int main(void) {
+    int a = ~~5;
+    int b = ~~(++((a)));
+
+    return a + b;
+}");
+
+test_no_cpp!(increment_post_tt_parens, 11, br"int main(void) {
+    int a = ~~5;
+    int b = ~~(((a))++);
+
+    return a + b;
+}");
+
+test_no_cpp!(decrement_pre_tt_parens, 8, br"int main(void) {
+    int a = ~~5;
+    int b = ~~(--((a)));
+
+    return a + b;
+}");
+
+test_no_cpp!(decrement_post_tt_parens, 9, br"int main(void) {
+    int a = ~~5;
+    int b = ~~(((a))--);
+
+    return a + b;
+}");
