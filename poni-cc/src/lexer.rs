@@ -14,6 +14,10 @@ pub struct Lexer<R: Read> {
 
     input: R,
 
+    internal_buffer: [u8; 512],
+    internal_buf_len: usize,
+    internal_buf_ptr: usize,
+
     next_buf: Vec<u8>,
 
     /// A Map from StrId's to TokenType's for our keywords. Use a Vec instead
@@ -177,6 +181,10 @@ impl<R: Read> Lexer<R> {
 
             input,
 
+            internal_buffer: [0; 512],
+            internal_buf_len: 0,
+            internal_buf_ptr: 0,
+
             next_buf: Vec::new(),
             keyword_map: vec![
                 // TODO: Optimization: When we're looking at an identifier,
@@ -190,16 +198,30 @@ impl<R: Read> Lexer<R> {
         }
     }
 
+    fn advance_buffer(&mut self) {
+        self.internal_buffer[0] = 0;
+        self.internal_buf_ptr = 0;
+
+        match self.input.read(&mut self.internal_buffer).unwrap() {
+            0 => {
+                self.at_eof = true;
+                self.internal_buf_len = 0;
+            }
+            n @ _ => {
+                self.internal_buf_len = n;
+            }
+        }
+    }
+
+    #[inline(always)]
     fn advance(&mut self) -> u8 {
         let result = self.next_byte;
 
-        let mut buf = [0];
-        // NOTE: We need to implement backtracking support or w/e for the panic.
-        match self.input.read(&mut buf).unwrap() {
-            0 => self.at_eof = true,
-            _ => {}
+        self.internal_buf_ptr += 1;
+        if self.internal_buf_ptr >= self.internal_buf_len {
+            self.advance_buffer();
         }
-        self.next_byte = buf[0];
+        self.next_byte = self.internal_buffer[self.internal_buf_ptr];
 
         result
     }
