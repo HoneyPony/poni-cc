@@ -405,3 +405,75 @@ test_no_cpp!(decrement_post_tt_parens, 9, br"int main(void) {
 
     return a + b;
 }");
+
+test_no_cpp!(increment_pre_negate, 14, br"int main(void) {
+    int a = -15;
+    int b = -++a;
+    return b;
+}");
+
+test_no_cpp!(increment_post_negate, 15, br"int main(void) {
+    int a = -15;
+    int b = -a++;
+    return b;
+}");
+
+test_no_cpp!(decrement_pre_negate, 16, br"int main(void) {
+    int a = -15;
+    int b = - --a;
+    return b;
+}");
+
+test_no_cpp!(decrement_post_negate, 15, br"int main(void) {
+    int a = -15;
+    int b = -a--;
+    return b;
+}");
+
+test_no_cpp!(increment_pre_negate_parens, 14, br"int main(void) {
+    int a = -15;
+    int b = -++(a);
+    return b;
+}");
+
+test_no_cpp!(increment_post_negate_parens, 15, br"int main(void) {
+    int a = -15;
+    int b = -(a)++;
+    return b;
+}");
+
+test_no_cpp!(decrement_pre_negate_parens, 16, br"int main(void) {
+    int a = -15;
+    int b = - --(a);
+    return b;
+}");
+
+test_no_cpp!(decrement_post_negate_parens, 15, br"int main(void) {
+    int a = -15;
+    int b = -(a)--;
+    return b;
+}");
+
+test_no_cpp!(increment_pre_not, -14, br"int main(void) {
+    int a = -15;
+    int b = !++a;
+    return a + b;
+}");
+
+test_no_cpp!(increment_post_not, -14, br"int main(void) {
+    int a = -15;
+    int b = !a++;
+    return a + b;
+}");
+
+test_no_cpp!(inc_dec_complex, 1, br"int main(void) {
+    int a = 1;
+    int b = 2;
+    int c1 = -++a;
+    int d1 = !b--;
+    int c2 = -++(a);
+    int d2 = !(b)--;
+    int d3 = !(b)--;
+
+    return (a == 3 && b == -1 && c1 == -2 && d1 == 0 && c2 == -3 && d2 == 0 && d3 == 1);
+}");
