@@ -12,6 +12,12 @@ struct Binary {
     text: Vec<u8>,
     // Data section
     data: Vec<u8>,
+
+    /// Offsets of labels from the text section
+    label_offsets: FxHashMap<StrId, usize>,
+
+    /// List of offsets to patch with a specific symbol
+    fixups: Vec<(StrId, usize)>,
 }
 
 impl Binary {
@@ -19,6 +25,38 @@ impl Binary {
         Binary {
             text: Vec::new(),
             data: Vec::new(),
+
+            // TODO: Probably instead of using a HashMap, we want to just store
+            // this stuff inline in the Ctx.
+            label_offsets: FxHashMap::default(),
+            fixups: Vec::new(),
+        }
+    }
+    
+    fn fixup(&mut self) {
+        for fixup in &self.fixups {
+            if let Some(known) = self.label_offsets.get(&fixup.0) {
+                // If we found the fixup, we generate a rel32 operand. This looks
+                // like:
+                //     target - my_addr
+                //
+                // However, there's also an offset of 1 or something? We will
+                // have to figure it out.
+
+                // Convert everything to i64. That way, we can easily tell
+                // if the address fits in i32, without any shenanigans.
+                let my_addr = fixup.1 as i64;
+                let target = *known as i64;
+
+                let displacement = target - my_addr;
+                let value = i32::try_from(displacement)
+                    // It's an error if we can't fit the displacement.
+                    .expect("can't fit displacement");
+
+                // Copy the value into the text
+                let dest = &mut self.text[fixup.1..fixup.1 + 4];
+                dest.copy_from_slice(&value.to_le_bytes());
+            }
         }
     }
 }
@@ -30,6 +68,8 @@ impl Program {
         for fun in &self.functions {
             fun.write_as_binary(ctx, &mut binary)?;
         }
+
+        binary.fixup();
 
         // We have yet to implement an ELF encoding. Instead, just write the
         // whole text section out??
@@ -307,14 +347,34 @@ fn binop_table(op: BinaryOp) -> Opcodes {
 impl Instr {
     fn write_as_binary(&self, ctx: &Ctx, binary: &mut Binary) -> std::io::Result<()> {
         match self {
-            Instr::Ret => binary.data.push(0xc3),
+            Instr::Ret => binary.text.push(0xc3),
             Instr::Unary { op, operand } => todo!(),
             Instr::Binary { op, dst, src } => {
                 write_general_opcode(ctx, binop_table(*op), src, dst, binary);
             },
-            Instr::Cdq => todo!(),
-            Instr::Cmp { lhs, rhs } => todo!(),
-            Instr::Jmp(str_id) => todo!(),
+            Instr::Cdq => binary.text.push(0x99),
+            Instr::Cmp { lhs, rhs } => {
+                let op = Opcodes {
+                    mem_dst_reg_src: &[0x39],
+                    reg_dst_mem_src: &[0x3B],
+                    mem_dst_imm32_src: (&[0x81], 7),
+                };
+                write_general_opcode(ctx, op, lhs, rhs, binary);
+            },
+            Instr::Jmp(str_id) => {
+                binary.text.push(0xE9); // JMP rel32
+
+                let fixup_addr = binary.text.len();
+
+                // Don't push a label yet (?)
+                binary.text.push(0);
+                binary.text.push(0);
+                binary.text.push(0);
+                binary.text.push(0);
+
+                // Add us to the fixup list
+                binary.fixups.push((*str_id, fixup_addr));
+            },
             Instr::JmpCC(cond_code, str_id) => todo!(),
             Instr::SetCC(cond_code, operand) => todo!(),
             Instr::Idiv { rhs } => todo!(),
@@ -327,7 +387,9 @@ impl Instr {
                 write_general_opcode(ctx, op, src, dst, binary);
             },
             Instr::Shift { op, dst } => todo!(),
-            Instr::Label(str_id) => todo!(),
+            Instr::Label(str_id) => {
+                binary.label_offsets.insert(*str_id, binary.text.len());
+            },
         }
 
         Ok(())
