@@ -1,0 +1,1 @@
+cargo run -- --fun --no-cpp -o out -i "$1"

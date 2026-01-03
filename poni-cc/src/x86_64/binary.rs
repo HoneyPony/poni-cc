@@ -31,6 +31,10 @@ impl Program {
             fun.write_as_binary(ctx, &mut binary)?;
         }
 
+        // We have yet to implement an ELF encoding. Instead, just write the
+        // whole text section out??
+        output.write_all(&binary.text)?;
+
         Ok(())
     }
 }

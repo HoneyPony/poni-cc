@@ -1,2 +1,5 @@
 /target
 /writing-a-c-compiler-tests
+
+# For funcc.sh
+/out
