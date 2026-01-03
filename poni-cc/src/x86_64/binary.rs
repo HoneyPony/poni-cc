@@ -38,17 +38,18 @@ impl Binary {
             if let Some(known) = self.label_offsets.get(&fixup.0) {
                 // If we found the fixup, we generate a rel32 operand. This looks
                 // like:
-                //     target - my_addr
+                //     target - address_of_instruction_after_me
                 //
-                // However, there's also an offset of 1 or something? We will
-                // have to figure it out.
+                // In theory, all of the addresses of the instruction after me
+                // should just be the fixup.1 + 4, because we always generate
+                // 4 bytes after the fixup.1.
 
                 // Convert everything to i64. That way, we can easily tell
                 // if the address fits in i32, without any shenanigans.
-                let my_addr = fixup.1 as i64;
+                let address_of_instruction_after_me = fixup.1 as i64 + 4;
                 let target = *known as i64;
 
-                let displacement = target - my_addr;
+                let displacement = target - address_of_instruction_after_me;
                 let value = i32::try_from(displacement)
                     // It's an error if we can't fit the displacement.
                     .expect("can't fit displacement");
@@ -298,7 +299,8 @@ fn write_general_opcode(ctx: &Ctx, opcode: Opcodes, src: &Operand, dst: &Operand
         },
 
         // Nothing else should be possible.
-        _ => unreachable!()
+        _ => panic!("ice: unknown instruction format src {} dst {}",
+            src.fmt_name(), dst.fmt_name())
     }
 }
 
@@ -359,7 +361,7 @@ impl Instr {
                     reg_dst_mem_src: &[0x3B],
                     mem_dst_imm32_src: (&[0x81], 7),
                 };
-                write_general_opcode(ctx, op, lhs, rhs, binary);
+                write_general_opcode(ctx, op, rhs, lhs, binary);
             },
             Instr::Jmp(str_id) => {
                 binary.text.push(0xE9); // JMP rel32
@@ -375,7 +377,22 @@ impl Instr {
                 // Add us to the fixup list
                 binary.fixups.push((*str_id, fixup_addr));
             },
-            Instr::JmpCC(cond_code, str_id) => todo!(),
+            Instr::JmpCC(cond_code, str_id) => {
+                // We want rel32...?
+                binary.text.push(0x0F);
+                binary.text.push(cond_code.near_jmp_opcode());
+
+                let fixup_addr = binary.text.len();
+
+                // Don't push a label yet (?)
+                binary.text.push(0);
+                binary.text.push(0);
+                binary.text.push(0);
+                binary.text.push(0);
+
+                // Add us to the fixup list
+                binary.fixups.push((*str_id, fixup_addr));
+            },
             Instr::SetCC(cond_code, operand) => todo!(),
             Instr::Idiv { rhs } => todo!(),
             Instr::Mov { src, dst } => {

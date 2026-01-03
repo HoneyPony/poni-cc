@@ -61,6 +61,17 @@ impl CondCode {
             CondCode::GE => b"ge",
         }
     }
+
+    pub fn near_jmp_opcode(&self) -> u8 {
+        match self {
+            CondCode::E  => 0x84,
+            CondCode::NE => 0x85,
+            CondCode::L  => 0x8C,
+            CondCode::LE => 0x8E,
+            CondCode::G  => 0x8F,
+            CondCode::GE => 0x8D,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -80,6 +91,15 @@ impl Operand {
         match self {
             Operand::Reg(r, _) => Operand::Reg(*r, size),
             _ => *self
+        }
+    }
+
+    pub fn fmt_name(&self) -> &str {
+        match self {
+            Operand::Reg(..) => "register",
+            Operand::Imm(_) => "immediate",
+            Operand::Psuedo(_) => "psuedoregister",
+            Operand::Stack(_) => "memory (stack slot)",
         }
     }
 }
