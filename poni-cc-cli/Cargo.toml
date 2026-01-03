@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 argh = { version = "0.1.13", default-features = false, features = ["help"] }
+mimalloc = "0.1.48"
 poni-cc = { version = "0.1.0", path = "../poni-cc" }

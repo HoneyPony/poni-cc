@@ -1,6 +1,10 @@
 use std::{fs::File, io::{BufReader, BufWriter}, path::PathBuf, process::{Command, Stdio}};
 
 use argh::FromArgs;
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static MIMALLOC: MiMalloc = MiMalloc;
 
 #[derive(FromArgs)]
 /// Compiles a single C file to x86_64 assembly, to be compiled by GNU GAS.
