@@ -1,4 +1,4 @@
-use std::{fs::File, io::{BufReader, BufWriter}, path::PathBuf};
+use std::{fs::File, io::{BufReader, BufWriter}, path::PathBuf, process::{Command, Stdio}};
 
 use argh::FromArgs;
 
@@ -13,9 +13,53 @@ struct Cli {
     #[argh(option, short = 'o')]
     /// path to the output S file.
     output: PathBuf,
+    #[argh(switch)]
+    /// whether to act as a compiler driver (automatically invoking gcc for
+    /// preprocessing and assembly.)
+    compile: bool,
 }
 
-fn compile(args: &Cli) -> std::io::Result<()> {
+fn compile_driver(args: &Cli) -> std::io::Result<()> {
+    // These are just from a bit of experimentation. Obviously we would be
+    // best off with our own preprocessor and assembler (although maybe not
+    // our own linker (?))
+    let cpp_program = "tcc";
+    let asm_ld_program = "clang";
+
+    let mut cpp = Command::new(cpp_program)
+        .arg("-E")
+        .arg("-P")
+        //.arg("-x").arg("c")
+        // Read from stdin
+        .arg(&args.input)
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    
+    let mut asm = Command::new(asm_ld_program)
+        .arg("-o").arg(&args.output)
+        .arg("-x").arg("assembler")
+        //.arg("-fuse-ld=mold")
+        .arg("-")
+        .stdin(Stdio::piped())
+        .spawn()?;
+
+    let asm_stdin = asm.stdin.take().unwrap();
+    let cpp_stdout = cpp.stdout.take().unwrap();
+
+    poni_cc::compile(
+        BufReader::new(cpp_stdout),
+        BufWriter::new(asm_stdin),
+        true)
+        .unwrap();
+
+    drop(cpp); // kill the pipe (?)
+    asm.wait()?;
+
+    Ok(())
+}
+
+fn compile_to_asm(args: &Cli) -> std::io::Result<()> {
     let input = File::open(&args.input)?;
     // TODO: Maybe only create this file if we successfully compile..?
     let output = File::create(&args.output)?;
@@ -30,11 +74,16 @@ fn compile(args: &Cli) -> std::io::Result<()> {
 
 fn main() {
     let args: Cli = argh::from_env();
-    match compile(&args) {
-        Ok(()) => { eprintln!("🦄 success"); }
-        Err(err) => {
-            eprintln!("🦄 io error: {}", err);
-            std::process::exit(1);
+    if args.compile {
+        compile_driver(&args).unwrap();
+    }
+    else {
+        match compile_to_asm(&args) {
+            Ok(()) => { eprintln!("🦄 success"); }
+            Err(err) => {
+                eprintln!("🦄 io error: {}", err);
+                std::process::exit(1);
+            }
         }
     }
 }
