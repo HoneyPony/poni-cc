@@ -243,6 +243,7 @@ impl<R: Read> Lexer<R> {
     }
 
     fn str_from_buf(&mut self, ctx: &mut Ctx) -> StrKey {
+        //eprintln!("next_buf: '{}'", str::from_utf8(&self.next_buf).unwrap());
         if self.next_buf.len() <= STRKEY_SIZE {
             // Safe because we've checked its less than 11
             let len_us = self.next_buf.len();
@@ -276,12 +277,36 @@ impl<R: Read> Lexer<R> {
     }
 
     fn identifier(&mut self, ctx: &mut Ctx) -> TokenType {
-        while self.next_byte.is_ascii_alphanumeric() || self.next_byte == b'_' {
-            let b = self.advance();
-            self.next_buf.push(b);
+        fn is_id(c: u8) -> bool {
+            c.is_ascii_alphanumeric() || c == b'_'
         }
 
-        let tok = self.token_from_buf(ctx, true);
+        let mut copy_from = self.internal_buf_ptr;
+        let mut fast = true;
+        while is_id(self.internal_buffer[self.internal_buf_ptr]) {
+            self.internal_buf_ptr += 1;
+            if self.internal_buf_ptr >= self.internal_buf_len {
+                self.next_buf.extend_from_slice(&self.internal_buffer[copy_from..self.internal_buf_ptr]);
+                self.advance_buffer();
+                copy_from = 0;
+                fast = false;
+            }
+        }
+        let tok = if fast && (self.internal_buf_ptr - copy_from) <= STRKEY_SIZE {
+            let len = self.internal_buf_ptr - copy_from;
+            let mut buf = [0u8; STRKEY_SIZE];
+            let subslice = &mut buf[0..len];
+            subslice.copy_from_slice(&self.internal_buffer[copy_from..self.internal_buf_ptr]);
+
+            TokenType::Identifier(StrKey::Bytes(NonZeroU8::new(len as u8).unwrap(), buf))
+        }
+        else {
+            self.next_buf.extend_from_slice(&self.internal_buffer[copy_from..self.internal_buf_ptr]);
+            self.token_from_buf(ctx, true)
+        };
+       
+        self.next_byte = self.internal_buffer[self.internal_buf_ptr];
+
         // We also need the str...
         let TokenType::Identifier(str) = tok else { unreachable!() };
 
