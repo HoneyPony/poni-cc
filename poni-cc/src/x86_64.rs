@@ -1,6 +1,6 @@
 //! Backend for x86_64. The main goal is for it to work on my computer.
 
-use std::{collections::HashMap, io::Write};
+use std::io::Write;
 
 use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, Label, UnaryOp}};
 

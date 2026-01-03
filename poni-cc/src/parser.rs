@@ -16,7 +16,7 @@
 //! code from other applications. I'm not sure exactly how that should fit in;
 //! perhaps the Parser calls into something else..?
 
-use std::io::{Read, Write};
+use std::io::Read;
 
 use rustc_hash::FxHashMap;
 
@@ -93,6 +93,11 @@ impl<R: Read> Parser<R> {
         None
     }
 
+    /// This function is currently unused. The idea is still something I want
+    /// to come back to though: Basically, where possible, re-use existing
+    /// variables when we're generating IR. This should result in many fewer
+    /// redundant instructions, which is good.
+    #[expect(unused)]
     fn promote_to_var(val: Val, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Var {
         match val {
             Val::Constant(_) => {

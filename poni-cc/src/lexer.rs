@@ -4,7 +4,7 @@
 //! strings, which are then matched against keywords. Then, operators and other
 //! special characters are handled specially.
 
-use std::io::{Read, Write};
+use std::io::Read;
 
 use crate::ctx::{Ctx, StrId};
 
@@ -185,9 +185,7 @@ impl<R: Read> Lexer<R> {
         result
     }
 
-    // TODO: If we just used the panic hook idea, there would be no need fore
-    // std::io::Result here, which would actually be very nice.
-    fn match_(&mut self, _ctx: &mut Ctx, expected_byte: u8) -> bool {
+    fn match_(&mut self, expected_byte: u8) -> bool {
         if self.next_byte == expected_byte {
             self.advance();
             return true;
@@ -238,8 +236,8 @@ impl<R: Read> Lexer<R> {
     }
 
     #[inline(always)]
-    fn choose_match_one(&mut self, ctx: &mut Ctx, expected_byte: u8, if_matches: TokenType, if_not: TokenType) -> Token {
-        if self.match_(ctx, expected_byte) {
+    fn choose_match_one(&mut self, expected_byte: u8, if_matches: TokenType, if_not: TokenType) -> Token {
+        if self.match_(expected_byte) {
             self.token(if_matches)
         }
         else {
@@ -254,7 +252,7 @@ impl<R: Read> Lexer<R> {
     //    _    => Plus,
     // })
     #[inline(always)]
-    fn choose_match_two(&mut self, ctx: &mut Ctx, default: TokenType, a: u8, atype: TokenType, b: u8, btype: TokenType) -> Token {
+    fn choose_match_two(&mut self, default: TokenType, a: u8, atype: TokenType, b: u8, btype: TokenType) -> Token {
         let typ = match self.next_byte {
             n if n == a => {
                 self.advance();
@@ -297,37 +295,37 @@ impl<R: Read> Lexer<R> {
             b'}' => self.token(TokenType::RBrace),
             b';' => self.token(TokenType::Semicolon),
             b'~' => self.token(TokenType::Tilde),
-            b'^' => self.choose_match_one(ctx, b'=',
+            b'^' => self.choose_match_one(b'=',
                 TokenType::CaretEqual, TokenType::Caret),
-            b'=' => self.choose_match_one(ctx, b'=',
+            b'=' => self.choose_match_one(b'=',
                 TokenType::EqualEqual, TokenType::Equal),
-            b'!' => self.choose_match_one(ctx, b'=',
+            b'!' => self.choose_match_one(b'=',
                 TokenType::BangEqual, TokenType::Bang),
-            b'-' => self.choose_match_two(ctx, TokenType::Minus,
+            b'-' => self.choose_match_two(TokenType::Minus,
                 b'-', TokenType::MinusMinus,
                 b'=', TokenType::MinusEqual),
-            b'+' => self.choose_match_two(ctx, TokenType::Plus,
+            b'+' => self.choose_match_two(TokenType::Plus,
                 b'+', TokenType::PlusPlus,
                 b'=', TokenType::PlusEqual),
-            b'&' => self.choose_match_two(ctx, TokenType::Ampersand,
+            b'&' => self.choose_match_two(TokenType::Ampersand,
                 b'&', TokenType::AmpersandAmpersand,
                 b'=', TokenType::AmpersandEqual),
-            b'|' => self.choose_match_two(ctx, TokenType::Pipe,
+            b'|' => self.choose_match_two(TokenType::Pipe,
                 b'|', TokenType::PipePipe,
                 b'=', TokenType::PipeEqual),
-            b'*' => self.choose_match_one(ctx, b'=',
+            b'*' => self.choose_match_one(b'=',
                 TokenType::StarEqual, TokenType::Star),
-            b'%' => self.choose_match_one(ctx, b'=',
+            b'%' => self.choose_match_one(b'=',
                 TokenType::PercentEqual, TokenType::Percent),
 
             // TODO: Handle comments.
-            b'/' => self.choose_match_one(ctx, b'=',
+            b'/' => self.choose_match_one(b'=',
                 TokenType::SlashEqual, TokenType::Slash),
 
             b'<' => match self.next_byte {
                 b'<' => {
                     self.advance();
-                    self.choose_match_one(ctx, b'=',
+                    self.choose_match_one(b'=',
                         TokenType::LessLessEqual, TokenType::LessLess)
                 }
                 b'=' => {
@@ -341,7 +339,7 @@ impl<R: Read> Lexer<R> {
             b'>' => match self.next_byte {
                 b'>' => {
                     self.advance();
-                    self.choose_match_one(ctx, b'=',
+                    self.choose_match_one(b'=',
                         TokenType::GreaterGreaterEqual, TokenType::GreaterGreater)
                 }
                 b'=' => {

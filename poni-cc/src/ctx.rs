@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use poni_arena::{Arena, ArenaKey, define_arena_key};
+use poni_arena::{Arena, define_arena_key};
 use rustc_hash::FxHashMap;
 
 use crate::ir;
