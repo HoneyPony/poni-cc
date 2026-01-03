@@ -4,7 +4,7 @@
 //! strings, which are then matched against keywords. Then, operators and other
 //! special characters are handled specially.
 
-use std::io::Read;
+use std::{io::Read, num::NonZeroU8};
 
 use crate::ctx::{Ctx, StrId};
 
@@ -142,6 +142,72 @@ impl std::fmt::Display for TokenType {
         f.write_str(self.to_str_const())
     }
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SmallStr {
+    Id(StrId),
+    Bytes(NonZeroU8, [u8; 11])
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TokenType2 {
+    Identifier(SmallStr),
+    Constant,
+    
+    Int, Void,
+
+    Return,
+    LParen = b'(', RParen = b')',
+
+    LBrace = b'{', RBrace = b'}',
+
+    Semicolon = b';',
+
+    Bang    = b'!',
+    Equal   = b'=',
+    Plus    = b'+',
+    Minus   = b'-',
+    Star    = b'*',
+    Slash   = b'/',
+    Percent = b'%',
+    Tilde   = b'~',
+    Ampersand = b'&',
+    Pipe      = b'|',
+    Caret     = b'^',
+    Less      = b'<',
+    Greater   = b'>',
+    
+    BangEqual,
+    EqualEqual,
+
+    PlusPlus,
+    MinusMinus,
+
+    AmpersandAmpersand,
+    PipePipe,
+
+    LessLess,
+    GreaterGreater,
+
+    LessEqual,
+    GreaterEqual,
+
+    PlusEqual,
+    MinusEqual,
+    StarEqual,
+    SlashEqual,
+    PercentEqual,
+
+    AmpersandEqual,
+    PipeEqual,
+    CaretEqual,
+    LessLessEqual,
+    GreaterGreaterEqual,
+
+    Eof,
+}
+
 
 #[derive(Clone, Copy)]
 pub struct Token {
