@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use poni_arena::{Arena, define_arena_key};
+use poni_arena::{Arena, ArenaKey, define_arena_key};
 use rustc_hash::FxHashMap;
 
 use crate::ir;
@@ -50,8 +50,8 @@ impl Ctx {
         // Taking it also lets us use the entry API, which should (?) let us
         // only do one lookup instead of two.
         let key = self.str_side_map.entry(take)
-            .or_insert_with(|| {
-                let key = self.strs.push(String::from_utf8_lossy(&str).into_owned());
+            .or_insert_with_key(|key| {
+                let key = self.strs.push(String::from_utf8_lossy(&key).into_owned());
                 key
             });
 
