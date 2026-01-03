@@ -1,1 +1,1 @@
-objdump -D -b binary -m i386 "$1" --adjust-vma=0x0
+objdump -D -b binary -m i386 -M x86-64 "$1" --adjust-vma=0x0
