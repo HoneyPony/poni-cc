@@ -294,11 +294,11 @@ impl Instr {
                 output.write_all(b"\n")?;
             }
             Instr::Cmp { lhs, rhs } => {
-                Self::two_ops(ctx, output, b"\tcmpl\t", rhs, lhs);
+                Self::two_ops(ctx, output, b"\tcmpl\t", rhs, lhs)?;
             }
             Instr::Label(label) => {
                 output.write_all(ctx.get(*label).as_bytes())?;
-                output.write_all(b":\n");
+                output.write_all(b":\n")?;
             }
         }
 
