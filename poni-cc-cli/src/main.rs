@@ -28,7 +28,11 @@ struct Cli {
     #[argh(switch)]
     /// whether to emit some kind of experimental binary file. Eventually this
     /// will evolve into an ELF.
-    fun: bool
+    fun: bool,
+
+    #[argh(switch)]
+    /// don't preprocess.
+    no_cpp: bool,
 }
 
 fn compile_driver(args: &Cli) -> std::io::Result<()> {
@@ -77,6 +81,21 @@ fn compile_driver(args: &Cli) -> std::io::Result<()> {
 //
 // Does not do any actual compilation, yet.
 fn compile_driver_fun(args: &Cli) -> std::io::Result<()> {
+    if args.no_cpp {
+        let input = File::open(&args.input).unwrap();
+        let output = File::create(&args.output).unwrap();
+
+        poni_cc::compile(
+            BufReader::new(input),
+            BufWriter::new(output),
+            true,
+            true,
+        )
+        .unwrap();
+
+        return Ok(())
+    }
+
     let cpp_program = "tcc";
 
     let mut cpp = Command::new(cpp_program)
