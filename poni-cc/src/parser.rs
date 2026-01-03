@@ -20,7 +20,7 @@ use std::io::Read;
 
 use rustc_hash::FxHashMap;
 
-use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, TokenType}};
+use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, StrKey, TokenType}};
 use crate::ir::*;
 
 /// A single scope of vars, e.g. there are two different VarScopes in the following:
@@ -31,7 +31,7 @@ use crate::ir::*;
 /// }
 /// ```
 struct VarScope {
-    map: FxHashMap<StrId, crate::ir::Var>,
+    map: FxHashMap<StrKey, crate::ir::Var>,
 }
 
 impl VarScope {
@@ -76,7 +76,7 @@ impl<R: Read> Parser<R> {
         self.advance(ctx)
     }
 
-    fn expect_id(&mut self, ctx: &mut Ctx) -> StrId {
+    fn expect_id(&mut self, ctx: &mut Ctx) -> StrKey {
        let TokenType::Identifier(id) = self.next_token else {
             panic!("expected identifier got {}", self.next_token);
         };
@@ -92,7 +92,7 @@ impl<R: Read> Parser<R> {
         false
     }
 
-    fn lookup_var(&self, var_name: StrId) -> Option<Var> {
+    fn lookup_var(&self, var_name: StrKey) -> Option<Var> {
         for scope in self.variables.iter().rev() {
             if let Some(var) = scope.map.get(&var_name) {
                 return Some(*var);
@@ -174,7 +174,7 @@ impl<R: Read> Parser<R> {
             // In the future, this will have to parse a whole type somehow...
             let var_name = self.expect_id(ctx);
             if self.lookup_var(var_name).is_some() {
-                panic!("duplicate variable '{}'", ctx.get(var_name));
+                panic!("duplicate variable '{}'", ctx.get(&var_name));
             }
 
             let var = ctx.tmp();
@@ -428,7 +428,7 @@ impl<R: Read> Parser<R> {
                 self.advance(ctx);
 
                 let Some(var) = self.lookup_var(var_name) else {
-                    panic!("unresolved identifier '{}'", ctx.get(var_name));
+                    panic!("unresolved identifier '{}'", ctx.get(&var_name));
                 };
 
                 // Identifiers produce an LValue.

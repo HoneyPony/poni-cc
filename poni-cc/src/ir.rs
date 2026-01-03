@@ -1,7 +1,7 @@
-use crate::{ctx::StrId, lexer::TokenType};
+use crate::{ctx::StrId, lexer::{StrKey, TokenType}};
 
 pub struct Function {
-    pub name: StrId,
+    pub name: StrKey,
     pub body: Vec<Instr>,
 }
 
@@ -47,7 +47,7 @@ pub type Label = StrId;
 #[derive(Clone, Copy)]
 pub enum Val {
     // TODO: Probably integers? IDK
-    Constant(StrId),
+    Constant(StrKey),
     RValue(Var),
 
     /// This may change in the future.

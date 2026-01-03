@@ -1,7 +1,7 @@
 use poni_arena::{Arena, define_arena_key};
 use rustc_hash::FxHashMap;
 
-use crate::ir;
+use crate::{ir, lexer::StrKey};
 
 define_arena_key!(StrId);
 
@@ -56,8 +56,20 @@ impl Ctx {
         *key
     }
 
-    pub fn get(&self, str: StrId) -> &str {
-        self.strs.get(str)
+    pub fn get_id(&self, id: StrId) -> &str {
+        self.strs.get(id)
+    }
+
+    pub fn get<'a>(&'a self, str: &'a StrKey) -> &'a str {
+        match str {
+            StrKey::Id(str_id) => self.strs.get(*str_id),
+            // TODO: This is not really right. I guess instead I should somehow
+            // store the bytes themselves as a str? Or maybe just check them for
+            // utf8? Idk...
+            StrKey::Bytes(len, bytes) => unsafe {
+                str::from_utf8_unchecked(&bytes[0..len.get() as usize])
+            }
+        }
     }
 
     /// Creates a new temporary variable, by giving it a StrId that does not
@@ -76,12 +88,13 @@ impl Ctx {
     }
 
     #[inline(always)]
-    pub fn one(&self) -> StrId {
-        self.constant_one
+    pub fn one(&self) -> StrKey {
+        // TODO: Consider using from_bytes or w/e
+        StrKey::Id(self.constant_one)
     }
 
     #[inline(always)]
-    pub fn zero(&self) -> StrId {
-        self.constant_zero
+    pub fn zero(&self) -> StrKey {
+        StrKey::Id(self.constant_zero)
     }
 }

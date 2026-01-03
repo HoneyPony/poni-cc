@@ -18,14 +18,14 @@ pub struct Lexer<R: Read> {
 
     /// A Map from StrId's to TokenType's for our keywords. Use a Vec instead
     /// of a HashMap as there really aren't very many.
-    keyword_map: Vec<(StrId, TokenType)>,
+    keyword_map: Vec<(StrKey, TokenType)>,
 }
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
-    Identifier(StrId),
-    Constant(StrId),
+    Identifier(StrKey),
+    Constant(StrKey),
     
     Int, Void,
 
@@ -143,69 +143,28 @@ impl std::fmt::Display for TokenType {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum SmallStr {
+/// A key, sort of like StrId, except that can store small strings inline.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StrKey {
     Id(StrId),
     Bytes(NonZeroU8, [u8; 11])
 }
 
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum TokenType2 {
-    Identifier(SmallStr),
-    Constant,
-    
-    Int, Void,
+impl StrKey {
+    pub fn from_known_bytes(bytes: &[u8]) -> StrKey {
+        let len = bytes.len();
+        assert!(len <= 11);
 
-    Return,
-    LParen = b'(', RParen = b')',
+        let mut key = [0u8; 11];
+        let subslice = &mut key[0..len];
 
-    LBrace = b'{', RBrace = b'}',
+        let len = len as u8;
+        let len = NonZeroU8::new(len).unwrap();
+        
+        subslice.copy_from_slice(bytes);
 
-    Semicolon = b';',
-
-    Bang    = b'!',
-    Equal   = b'=',
-    Plus    = b'+',
-    Minus   = b'-',
-    Star    = b'*',
-    Slash   = b'/',
-    Percent = b'%',
-    Tilde   = b'~',
-    Ampersand = b'&',
-    Pipe      = b'|',
-    Caret     = b'^',
-    Less      = b'<',
-    Greater   = b'>',
-    
-    BangEqual,
-    EqualEqual,
-
-    PlusPlus,
-    MinusMinus,
-
-    AmpersandAmpersand,
-    PipePipe,
-
-    LessLess,
-    GreaterGreater,
-
-    LessEqual,
-    GreaterEqual,
-
-    PlusEqual,
-    MinusEqual,
-    StarEqual,
-    SlashEqual,
-    PercentEqual,
-
-    AmpersandEqual,
-    PipeEqual,
-    CaretEqual,
-    LessLessEqual,
-    GreaterGreaterEqual,
-
-    Eof,
+        return StrKey::Bytes(len, key)
+    }
 }
 
 impl<R: Read> Lexer<R> {
@@ -222,9 +181,9 @@ impl<R: Read> Lexer<R> {
                 // if it is greater than the last keyword StrId, then we
                 // know it can't be any keyword and can skip the rest of the
                 // search.
-                (ctx.put_str(b"int"), TokenType::Int),
-                (ctx.put_str(b"void"), TokenType::Void),
-                (ctx.put_str(b"return"), TokenType::Return),
+                (StrKey::from_known_bytes(b"int"), TokenType::Int),
+                (StrKey::from_known_bytes(b"void"), TokenType::Void),
+                (StrKey::from_known_bytes(b"return"), TokenType::Return),
             ]
         }
     }
@@ -258,8 +217,26 @@ impl<R: Read> Lexer<R> {
         typ
     }
 
-    fn token_from_buf(&mut self, ctx: &mut Ctx, is_ident: bool) -> TokenType {
+    fn str_from_buf(&mut self, ctx: &mut Ctx) -> StrKey {
+        if self.next_buf.len() <= 11 {
+            // Safe because we've checked its less than 11
+            let len_us = self.next_buf.len();
+            let len = len_us as u8;
+            if let Ok(nonzero) = NonZeroU8::try_from(len) {
+                let mut buf: [u8; 11] = [0; 11];
+                let subslice = &mut buf[0..len_us];
+                subslice.copy_from_slice(&self.next_buf);
+
+                return StrKey::Bytes(nonzero, buf);
+            }
+        }
+
         let str = ctx.put_and_clear_str(&mut self.next_buf);
+        return StrKey::Id(str)
+    }
+
+    fn token_from_buf(&mut self, ctx: &mut Ctx, is_ident: bool) -> TokenType {
+        let str = self.str_from_buf(ctx);
         if is_ident { TokenType::Identifier(str) } else { TokenType::Constant(str) }
     }
 

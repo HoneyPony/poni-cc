@@ -2,7 +2,7 @@
 
 use std::io::Write;
 
-use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, Label, UnaryOp}};
+use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, Label, UnaryOp}, lexer::StrKey};
 
 pub mod lowering;
 pub use lowering::lower_function;
@@ -15,7 +15,7 @@ pub struct Program {
 }
 
 pub struct Function {
-    pub name: StrId,
+    pub name: StrKey,
     pub stack_size: i32,
     pub instructions: Vec<Instr>
 }
@@ -66,7 +66,7 @@ impl CondCode {
 #[derive(Clone, Copy)]
 pub enum Operand {
     Reg(Register, u8),
-    Imm(StrId),
+    Imm(StrKey),
 
     /// Psuedoregister. Should not actually be generated in real code.
     Psuedo(StrId),
@@ -147,8 +147,8 @@ impl Program {
 
 impl Function {
     pub fn write_as_text<W: Write>(&self, ctx: &Ctx, output: &mut W) -> std::io::Result<()> {
-        cwriteln!(output, ".globl {}", ctx.get(self.name));
-        cwriteln!(output, "{}:", ctx.get(self.name));
+        cwriteln!(output, ".globl {}", ctx.get(&self.name));
+        cwriteln!(output, "{}:", ctx.get(&self.name));
 
         // Manually generate stack allocation & prelude. This saves us from
         // needing to add any additional instructions to the instructions vector.
@@ -277,14 +277,14 @@ impl Instr {
             }
             Instr::Jmp(label) => {
                 output.write_all(b"\tjmp\t")?;
-                output.write_all(ctx.get(*label).as_bytes())?;
+                output.write_all(ctx.get_id(*label).as_bytes())?;
                 output.write_all(b"\n")?;
             }
             Instr::JmpCC(cc, label) => {
                 output.write_all(b"\tj")?;
                 output.write_all(cc.as_asm())?;
                 output.write_all(b"\t")?;
-                output.write_all(ctx.get(*label).as_bytes())?;
+                output.write_all(ctx.get_id(*label).as_bytes())?;
                 output.write_all(b"\n")?;
             }
             Instr::SetCC(cc, dst) => {
@@ -298,7 +298,7 @@ impl Instr {
                 Self::two_ops(ctx, output, b"\tcmpl\t", rhs, lhs)?;
             }
             Instr::Label(label) => {
-                output.write_all(ctx.get(*label).as_bytes())?;
+                output.write_all(ctx.get_id(*label).as_bytes())?;
                 output.write_all(b":\n")?;
             }
         }
@@ -313,7 +313,7 @@ impl Operand {
             Operand::Reg(register, size) => { output.write_all(register.as_asm(*size))?; }
             Operand::Imm(str_id) => {
                 output.write_all(b"$")?;
-                output.write_all(ctx.get(*str_id).as_bytes())?;
+                output.write_all(ctx.get(str_id).as_bytes())?;
             }
             Operand::Psuedo(str_id) => {
                 // This is not actually valid, but it is good to be able to
