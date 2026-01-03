@@ -192,7 +192,6 @@ impl<R: Read> Lexer<R> {
 
     fn advance(&mut self) -> u8 {
         let result = self.next_byte;
-        self.next_buf.push(result);
 
         let mut buf = [0];
         // NOTE: We need to implement backtracking support or w/e for the panic.
@@ -244,7 +243,8 @@ impl<R: Read> Lexer<R> {
 
     fn number(&mut self, ctx: &mut Ctx) -> TokenType {
         while self.next_byte.is_ascii_digit() {
-            self.advance();
+            let b = self.advance();
+            self.next_buf.push(b);
         }
 
         // For now, we are only doing integers.
@@ -253,7 +253,8 @@ impl<R: Read> Lexer<R> {
 
     fn identifier(&mut self, ctx: &mut Ctx) -> TokenType {
         while self.next_byte.is_ascii_alphanumeric() || self.next_byte == b'_' {
-            self.advance();
+            let b = self.advance();
+            self.next_buf.push(b);
         }
 
         let tok = self.token_from_buf(ctx, true);
