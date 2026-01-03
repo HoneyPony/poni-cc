@@ -118,6 +118,28 @@ impl Register {
             _ => todo!()
         }
     }
+
+    pub fn low_3(&self) -> u8 {
+        match self {
+            Register::Eax => 0b000,
+            Register::Ecx => 0b001,
+            Register::Edx => 0b010,
+
+            // R8d => 0b000
+            // R9d => 0b001
+            Register::R10d => 0b010,
+            Register::R11d => 0b011,
+        }
+    }
+
+    pub fn high_bit(&self) -> u8 {
+        match self {
+            Register::R10d => 1,
+            Register::R11d => 1,
+
+            _ => 0,
+        }
+    }
 }
 
 macro_rules! cwrite {
