@@ -24,8 +24,8 @@ pub struct Lexer<R: Read> {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
-    Identifier,
-    Constant,
+    Identifier(StrId),
+    Constant(StrId),
     
     Int, Void,
 
@@ -83,8 +83,8 @@ pub enum TokenType {
 impl TokenType {
     pub fn to_str_const(&self ) -> &'static str {
         match self {
-            TokenType::Identifier => "identifier",
-            TokenType::Constant => "numerical constant",
+            TokenType::Identifier(_) => "identifier",
+            TokenType::Constant(_) => "numerical constant",
             TokenType::Int => "'int'",
             TokenType::Void => "'void'",
             TokenType::Return => "'return'",
@@ -208,13 +208,6 @@ pub enum TokenType2 {
     Eof,
 }
 
-
-#[derive(Clone, Copy)]
-pub struct Token {
-    pub typ: TokenType,
-    pub str: Option<StrId>,
-}
-
 impl<R: Read> Lexer<R> {
     pub fn new(input: R, ctx: &mut Ctx) -> Self {
         Lexer {
@@ -259,42 +252,38 @@ impl<R: Read> Lexer<R> {
         return false
     }
 
+    // TODO: Delete this function
     #[inline(always)]
-    fn token(&mut self, typ: TokenType) -> Token {
-        Token {
-            typ,
-            str: None
-        }
+    fn token(&mut self, typ: TokenType) -> TokenType {
+        typ
     }
 
-    fn token_from_buf(&mut self, ctx: &mut Ctx, typ: TokenType) -> Token {
+    fn token_from_buf(&mut self, ctx: &mut Ctx, is_ident: bool) -> TokenType {
         let str = ctx.put_and_clear_str(&mut self.next_buf);
-        Token {
-            typ,
-            str: Some(str)
-        }
+        if is_ident { TokenType::Identifier(str) } else { TokenType::Constant(str) }
     }
 
-    fn number(&mut self, ctx: &mut Ctx) -> Token {
+    fn number(&mut self, ctx: &mut Ctx) -> TokenType {
         while self.next_byte.is_ascii_digit() {
             self.advance();
         }
 
         // For now, we are only doing integers.
-        self.token_from_buf(ctx, TokenType::Constant)
+        self.token_from_buf(ctx, false)
     }
 
-    fn identifier(&mut self, ctx: &mut Ctx) -> Token {
+    fn identifier(&mut self, ctx: &mut Ctx) -> TokenType {
         while self.next_byte.is_ascii_alphanumeric() || self.next_byte == b'_' {
             self.advance();
         }
 
-        let mut tok = self.token_from_buf(ctx, TokenType::Identifier);
+        let tok = self.token_from_buf(ctx, true);
+        // We also need the str...
+        let TokenType::Identifier(str) = tok else { unreachable!() };
 
         for key in &self.keyword_map {
-            if tok.str == Some(key.0) {
-                tok.typ = key.1;
-                return tok;
+            if str == key.0 {
+                return key.1;
             }
         }
 
@@ -302,7 +291,7 @@ impl<R: Read> Lexer<R> {
     }
 
     #[inline(always)]
-    fn choose_match_one(&mut self, expected_byte: u8, if_matches: TokenType, if_not: TokenType) -> Token {
+    fn choose_match_one(&mut self, expected_byte: u8, if_matches: TokenType, if_not: TokenType) -> TokenType {
         if self.match_(expected_byte) {
             self.token(if_matches)
         }
@@ -318,7 +307,7 @@ impl<R: Read> Lexer<R> {
     //    _    => Plus,
     // })
     #[inline(always)]
-    fn choose_match_two(&mut self, default: TokenType, a: u8, atype: TokenType, b: u8, btype: TokenType) -> Token {
+    fn choose_match_two(&mut self, default: TokenType, a: u8, atype: TokenType, b: u8, btype: TokenType) -> TokenType {
         let typ = match self.next_byte {
             n if n == a => {
                 self.advance();
@@ -335,7 +324,7 @@ impl<R: Read> Lexer<R> {
         self.token(typ)
     }
 
-    pub fn next(&mut self, ctx: &mut Ctx) -> Token {
+    pub fn next(&mut self, ctx: &mut Ctx) -> TokenType {
         while self.next_byte.is_ascii_whitespace() {
             self.advance();
         }

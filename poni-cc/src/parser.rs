@@ -20,7 +20,7 @@ use std::io::Read;
 
 use rustc_hash::FxHashMap;
 
-use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, Token, TokenType}};
+use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, TokenType}};
 use crate::ir::*;
 
 /// A single scope of vars, e.g. there are two different VarScopes in the following:
@@ -43,7 +43,7 @@ impl VarScope {
 }
 
 pub struct Parser<R: Read> {
-    next_token: Token,
+    next_token: TokenType,
     lexer: Lexer<R>,
     variables: Vec<VarScope>,
 }
@@ -51,7 +51,7 @@ pub struct Parser<R: Read> {
 impl<R: Read> Parser<R> {
     pub fn new(input: R, ctx: &mut Ctx) -> Self {
         let mut result = Parser {
-            next_token: Token { typ: TokenType::Eof, str: None },
+            next_token: TokenType::Eof,
             lexer: Lexer::new(input, ctx),
             // Start with the global scope. (?)
             variables: vec![VarScope::new()],
@@ -62,22 +62,30 @@ impl<R: Read> Parser<R> {
         result
     }
 
-    fn advance(&mut self, ctx: &mut Ctx) -> Token {
+    fn advance(&mut self, ctx: &mut Ctx) -> TokenType {
         let result = self.next_token;
         self.next_token = self.lexer.next(ctx);
 
         result
     }
 
-    fn expect(&mut self, ctx: &mut Ctx, typ: TokenType) -> Token {
-        if self.next_token.typ != typ {
-            panic!("expected {} got {}", typ, self.next_token.typ);
+    fn expect(&mut self, ctx: &mut Ctx, typ: TokenType) -> TokenType {
+        if self.next_token != typ {
+            panic!("expected {} got {}", typ, self.next_token);
         }
         self.advance(ctx)
     }
 
+    fn expect_id(&mut self, ctx: &mut Ctx) -> StrId {
+       let TokenType::Identifier(id) = self.next_token else {
+            panic!("expected identifier got {}", self.next_token);
+        };
+        self.advance(ctx);
+        id
+    }
+
     fn match_(&mut self, ctx: &mut Ctx, typ: TokenType) -> bool {
-        if self.next_token.typ == typ {
+        if self.next_token == typ {
             self.advance(ctx);
             return true;
         }
@@ -134,13 +142,13 @@ impl<R: Read> Parser<R> {
         self.variables.push(VarScope::new());
 
         self.expect(ctx, TokenType::Int);
-        let ident = self.expect(ctx, TokenType::Identifier);
+        let ident = self.expect_id(ctx);
         self.expect(ctx, TokenType::LParen);
         self.expect(ctx, TokenType::Void);
         self.expect(ctx, TokenType::RParen);
         self.expect(ctx, TokenType::LBrace);
 
-        while !matches!(self.next_token.typ, TokenType::RBrace | TokenType::Eof) {
+        while !matches!(self.next_token, TokenType::RBrace | TokenType::Eof) {
             self.block_item(ctx, &mut instructions);
         }
 
@@ -156,7 +164,7 @@ impl<R: Read> Parser<R> {
         // TODO: We probably want to make the ident.str just a property of
         // e.g. TokenType::Identifier, so that we don't have to call .unwrap()
         // here.
-        Function { name: ident.str.unwrap(), body: instructions }
+        Function { name: ident, body: instructions }
     }
 
     pub fn block_item(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) {
@@ -164,8 +172,7 @@ impl<R: Read> Parser<R> {
             // Declaration
 
             // In the future, this will have to parse a whole type somehow...
-            let var_name = self.expect(ctx, TokenType::Identifier);
-            let var_name = var_name.str.unwrap();
+            let var_name = self.expect_id(ctx);
             if self.lookup_var(var_name).is_some() {
                 panic!("duplicate variable '{}'", ctx.get(var_name));
             }
@@ -189,7 +196,7 @@ impl<R: Read> Parser<R> {
     }
 
     pub fn statement(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) {
-        match self.next_token.typ {
+        match self.next_token {
             TokenType::Return => {
                 self.expect(ctx, TokenType::Return);
                 let return_val = self.expression(ctx, into);
@@ -217,7 +224,7 @@ impl<R: Read> Parser<R> {
     fn next_token_precedence(&self) -> Option<i32> {
         // See:
         // https://en.cppreference.com/w/c/language/operator_precedence.html
-        match self.next_token.typ {
+        match self.next_token {
             // Comma => 0
             TokenType::Equal | TokenType::PlusEqual | TokenType::MinusEqual |
                     TokenType::StarEqual | TokenType::SlashEqual | TokenType::PercentEqual |
@@ -246,7 +253,7 @@ impl<R: Read> Parser<R> {
             let op = self.advance(ctx);
 
             // Handling for short circuiting operators is special.
-            if matches!(op.typ, TokenType::AmpersandAmpersand | TokenType::PipePipe) {
+            if matches!(op, TokenType::AmpersandAmpersand | TokenType::PipePipe) {
                 // TODO: We can probably do this in a better way, with maybe
                 // a couple extra IR instructions.
                 //
@@ -289,7 +296,7 @@ impl<R: Read> Parser<R> {
                 // result = 1
                 // Label(end)
 
-                let is_or = matches!(op.typ, TokenType::PipePipe);
+                let is_or = matches!(op, TokenType::PipePipe);
 
                 let tf_label = ctx.label(if is_or { "true" } else { "false" });
                 let end_label = ctx.label("end");
@@ -325,7 +332,7 @@ impl<R: Read> Parser<R> {
                 // Make sure to update lhs!
                 lhs = dst.into();
             }
-            else if matches!(op.typ,
+            else if matches!(op,
                 TokenType::Equal | TokenType::PlusEqual | TokenType::MinusEqual |
                     TokenType::StarEqual | TokenType::SlashEqual | TokenType::PercentEqual |
                     TokenType::AmpersandEqual | TokenType::PipeEqual |
@@ -339,14 +346,14 @@ impl<R: Read> Parser<R> {
                 let rhs = self.climb_precedence(ctx, into, prec);
 
                 if let Val::LValue(var) = lhs {
-                    if op.typ == TokenType::Equal {
+                    if op == TokenType::Equal {
                         into.push(Instr::Copy { src: rhs, dst: var });
                     }
                     else {
                         // This will probably be a bit tricky with other kinds
                         // of lvalues. For now, just generate a BinaryOp that
                         // is assigning to the destination.
-                        into.push(Instr::Binary { op: BinaryOp::from(op.typ), dst: var, lhs, rhs })
+                        into.push(Instr::Binary { op: BinaryOp::from(op), dst: var, lhs, rhs })
                     }
 
                     // The LHS doesn't change super meaningfully here, but
@@ -361,7 +368,7 @@ impl<R: Read> Parser<R> {
                 }
             }
             else {
-                let op = BinaryOp::from(op.typ);
+                let op = BinaryOp::from(op);
                 let rhs = self.climb_precedence(ctx, into, prec + 1);
                 let dst = ctx.tmp();
 
@@ -380,7 +387,7 @@ impl<R: Read> Parser<R> {
     pub fn factor(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
         let atom = self.atom(ctx, into);
 
-        if matches!(self.next_token.typ, TokenType::PlusPlus | TokenType::MinusMinus) {
+        if matches!(self.next_token, TokenType::PlusPlus | TokenType::MinusMinus) {
             let op = self.advance(ctx);
 
             let Val::LValue(var) = atom else {
@@ -394,7 +401,7 @@ impl<R: Read> Parser<R> {
             });
 
             into.push(Instr::Binary {
-                op: BinaryOp::from(op.typ),
+                op: BinaryOp::from(op),
                 dst: var,
                 lhs: atom,
                 rhs: Val::Constant(ctx.one())
@@ -408,17 +415,17 @@ impl<R: Read> Parser<R> {
     }
 
     pub fn atom(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
-        match self.next_token.typ {
-            TokenType::Constant => {
-                let value = self.advance(ctx);
+        match self.next_token {
+            TokenType::Constant(value) => {
+                self.advance(ctx);
                 // Same thing as above (we should delete the unwrap...)
                 //
                 // Also, TODO: Validate that this StrId is a valid integer constant,
                 // and/or convert it if necessary.
-                Val::Constant(value.str.unwrap())
+                Val::Constant(value)
             },
-            TokenType::Identifier => {
-                let var_name = self.advance(ctx).str.unwrap();
+            TokenType::Identifier(var_name) => {
+                self.advance(ctx);
 
                 let Some(var) = self.lookup_var(var_name) else {
                     panic!("unresolved identifier '{}'", ctx.get(var_name));
