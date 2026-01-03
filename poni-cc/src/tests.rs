@@ -47,7 +47,7 @@ fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) 
     // We can't use fastdrop here. In particular, the application needs to keep
     // living long enough for the code to finish compiling, and for us to
     // run the tester program.
-    crate::compile(output, stdin, false)
+    crate::compile(output, stdin, false, false)
         .unwrap();
 
     asm.wait().unwrap();

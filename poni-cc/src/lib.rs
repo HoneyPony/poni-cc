@@ -17,7 +17,7 @@ mod x86_64;
 
 /// Core compiler driver, for now. Takes a reader, which contains (preprocessed)
 /// C code; outputs the generated assembly to the writer.
-pub fn compile<R, W>(input: R, mut output: W, fastdrop: bool) -> std::io::Result<()>
+pub fn compile<R, W>(input: R, mut output: W, fastdrop: bool, as_binary: bool) -> std::io::Result<()>
 where
     R: Read,
     W: Write
@@ -38,7 +38,15 @@ where
     let program = x86_64::Program {
         functions: x86_funs
     };
-    program.write_as_text(&ctx, &mut output)?;
+
+    if as_binary {
+        // This is not really going to be meaningful for a while, but we'll
+        // put it in so we can play with it.
+        program.write_as_binary(&ctx, &mut output)?;
+    }
+    else {
+        program.write_as_text(&ctx, &mut output)?;
+    }
     // Make sure output is written.
     drop(output);
 

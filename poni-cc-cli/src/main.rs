@@ -17,6 +17,14 @@ struct Cli {
     /// whether to act as a compiler driver (automatically invoking gcc for
     /// preprocessing and assembly.)
     compile: bool,
+
+    // TODO: We shouldn't have two boolean switches; we should have one way
+    // to switch between multiple things.
+
+    #[argh(switch)]
+    /// whether to emit some kind of experimental binary file. Eventually this
+    /// will evolve into an ELF.
+    fun: bool
 }
 
 fn compile_driver(args: &Cli) -> std::io::Result<()> {
@@ -50,11 +58,43 @@ fn compile_driver(args: &Cli) -> std::io::Result<()> {
     poni_cc::compile(
         BufReader::new(cpp_stdout),
         BufWriter::new(asm_stdin),
-        true)
+        true,
+        false)
         .unwrap();
 
     drop(cpp); // kill the pipe (?)
     asm.wait()?;
+
+    Ok(())
+}
+
+// Experimental driver that goes through our binary backend so we can start
+// having our own assembler implemented, & go FAST. :)
+//
+// Does not do any actual compilation, yet.
+fn compile_driver_fun(args: &Cli) -> std::io::Result<()> {
+    let cpp_program = "tcc";
+
+    let mut cpp = Command::new(cpp_program)
+        .arg("-E")
+        .arg("-P")
+        //.arg("-x").arg("c")
+        // Read from stdin
+        .arg(&args.input)
+        .stdout(Stdio::piped())
+        .spawn()?;
+
+    let cpp_stdout = cpp.stdout.take().unwrap();
+    let output_file = File::create(&args.output)?;
+
+    poni_cc::compile(
+        BufReader::new(cpp_stdout),
+        BufWriter::new(output_file),
+        true,
+        true)
+        .unwrap();
+
+    drop(cpp); // kill the pipe (?)
 
     Ok(())
 }
@@ -67,14 +107,17 @@ fn compile_to_asm(args: &Cli) -> std::io::Result<()> {
     let buf_read = BufReader::new(input);
     let buf_write = BufWriter::new(output);
 
-    poni_cc::compile(buf_read, buf_write, true)?;
+    poni_cc::compile(buf_read, buf_write, true, false)?;
 
     Ok(())
 }
 
 fn main() {
     let args: Cli = argh::from_env();
-    if args.compile {
+    if args.fun {
+        compile_driver_fun(&args).unwrap();
+    }
+    else if args.compile {
         compile_driver(&args).unwrap();
     }
     else {

@@ -6,6 +6,7 @@ use crate::{ctx::{Ctx, StrId}, ir::{BinaryOp, Label, UnaryOp}};
 
 pub mod lowering;
 pub use lowering::lower_function;
+pub mod binary;
 use poni_arena::ArenaKey;
 use rustc_hash::FxHashMap;
 
