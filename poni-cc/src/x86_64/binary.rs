@@ -110,7 +110,7 @@ impl Function {
         // is much more efficient in some cases. TODO: Consider writing good
         // code.
         do_write_imm(/* hack rex to have W bit */0b1000,
-            &[0x81], 5,
+            Some((&[0x83], 5)), (&[0x81], 5),
             &Operand::Reg(Register::Esp, 8), self.stack_size,
             binary);
 
@@ -125,6 +125,7 @@ impl Function {
 struct Opcodes {
     mem_dst_reg_src: &'static [u8],
     reg_dst_mem_src: &'static [u8],
+    mem_dst_sext_imm8_src: Option<(&'static [u8], u8)>,
     mem_dst_imm32_src: (&'static[u8], u8),
 }
 
@@ -260,8 +261,15 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
     SpecialBytes { rex, modrm: mod_ << 6 | reg << 3 | rm, disp, disp_len, operand: None }
 }
 
-fn do_write_imm(/* hack parameter for sub $imm, %rsp */ rex_oreq: u8, opcode: &[u8], reg_field: u8, mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
-    let mut bytes = get_special_bytes_imm(mem_reg_op, reg_field, imm_op);
+fn do_write_imm(/* hack parameter for sub $imm, %rsp */ rex_oreq: u8, imm8: Option<(&[u8], u8)>, imm32: (&[u8], u8), mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
+    let (opcode, operand, mut bytes) = 
+        if imm_op >= -128 && imm_op <= 127 && let Some(imm8) = imm8 {
+            let byte = imm_op as u8;
+            (imm8.0, &byte.to_le_bytes()[..], get_special_bytes_imm(mem_reg_op, imm8.1, imm_op))
+        }
+        else {
+            (imm32.0, &imm_op.to_le_bytes()[..], get_special_bytes_imm(mem_reg_op, imm32.1, imm_op))
+        };
     bytes.rex |= rex_oreq;
 
     if bytes.rex != REX_EMPTY {
@@ -272,9 +280,11 @@ fn do_write_imm(/* hack parameter for sub $imm, %rsp */ rex_oreq: u8, opcode: &[
 
     binary.text.extend_from_slice(&bytes.disp[0..bytes.disp_len as usize]);
 
-    if let Some(op) = bytes.operand {
-        binary.text.extend_from_slice(&op.to_le_bytes());
-    }
+    // TODO:  Get rid of SpecialBytes::operand field, which is useless
+    binary.text.extend_from_slice(operand);
+    // if let Some(op) = bytes.operand {
+    //     binary.text.extend_from_slice(&op.to_le_bytes());
+    // }
 }
 
 fn do_write(opcode: &[u8], mem_reg_op: &Operand, reg_op: &Operand, binary: &mut Binary) {
@@ -303,7 +313,7 @@ fn write_general_opcode(ctx: &Ctx, opcode: Opcodes, src: &Operand, dst: &Operand
             let imm_val = i32::from_str_radix(imm_str, 10)
                 .expect("bad integer constant");
 
-            do_write_imm(0, opcode.mem_dst_imm32_src.0, opcode.mem_dst_imm32_src.1, dst, imm_val, binary)
+            do_write_imm(0, opcode.mem_dst_sext_imm8_src, opcode.mem_dst_imm32_src, dst, imm_val, binary)
         }
         // stack <= reg
         (Operand::Reg(..), Operand::Stack(_)) => {
@@ -330,16 +340,19 @@ fn binop_table(op: BinaryOp) -> Opcodes {
         BinaryOp::Add => Opcodes {
             mem_dst_reg_src: &[0x01],
             reg_dst_mem_src: &[0x03],
+            mem_dst_sext_imm8_src: Some((&[0x83], 0)),
             mem_dst_imm32_src: (&[0x81], 0),
         },
         BinaryOp::Subtract => Opcodes {
             mem_dst_reg_src: &[0x29],
             reg_dst_mem_src: &[0x2B],
+            mem_dst_sext_imm8_src: Some((&[0x83], 5)),
             mem_dst_imm32_src: (&[0x81], 5),
         },
         BinaryOp::Multiply => Opcodes {
             mem_dst_reg_src: &[], // Not possible (?)
             reg_dst_mem_src: &[0x0F, 0xAF],
+            mem_dst_sext_imm8_src: None, // TODO
             mem_dst_imm32_src: (&[], 0), // Not possible (?)
         },
         BinaryOp::Divide => todo!(),
@@ -347,16 +360,19 @@ fn binop_table(op: BinaryOp) -> Opcodes {
         BinaryOp::And => Opcodes {
             mem_dst_reg_src: &[0x21],
             reg_dst_mem_src: &[0x23],
+            mem_dst_sext_imm8_src: Some((&[0x83], 4)),
             mem_dst_imm32_src: (&[0x81], 4),
         },
         BinaryOp::Or => Opcodes {
             mem_dst_reg_src: &[0x09],
             reg_dst_mem_src: &[0x0B],
+            mem_dst_sext_imm8_src: Some((&[0x83], 1)),
             mem_dst_imm32_src: (&[0x81], 1),
         },
         BinaryOp::Xor => Opcodes {
             mem_dst_reg_src: &[0x31],
             reg_dst_mem_src: &[0x33],
+            mem_dst_sext_imm8_src: Some((&[0x83], 6)),
             mem_dst_imm32_src: (&[0x81], 6),
         },
         BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEqual | BinaryOp::GreaterEqual | BinaryOp::Equal | BinaryOp::NotEqual => 
@@ -389,6 +405,7 @@ impl Instr {
                 let op = Opcodes {
                     mem_dst_reg_src: &[0x39],
                     reg_dst_mem_src: &[0x3B],
+                    mem_dst_sext_imm8_src: Some((&[0x83], 7)),
                     mem_dst_imm32_src: (&[0x81], 7),
                 };
                 write_general_opcode(ctx, op, rhs, lhs, binary);
@@ -429,6 +446,7 @@ impl Instr {
                 let op = Opcodes {
                     mem_dst_reg_src: &[0x89],
                     reg_dst_mem_src: &[0x8B],
+                    mem_dst_sext_imm8_src: None,
                     mem_dst_imm32_src: (&[0xC7], 0)
                 };
                 write_general_opcode(ctx, op, src, dst, binary);
