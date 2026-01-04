@@ -7,3 +7,8 @@ many_vars.c: many_vars-gen.c
 	$(CC) many_vars-gen.c -o ./gen -O2
 	./gen
 	rm ./gen
+
+many_vars_v2.c: many_vars_v2-gen.c
+	$(CC) many_vars_v2-gen.c -o ./gen -O2
+	./gen
+	rm ./gen
