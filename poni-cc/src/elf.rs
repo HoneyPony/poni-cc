@@ -251,7 +251,7 @@ impl<W: Write> ElfWriter<W> {
         let mut strtab   = Strtab::new();
         let mut shstrtab = Strtab::new();
 
-        let symtab = build_symtab(shndx_strtab, &mut strtab, symbols);
+        let symtab = build_symtab(shndx_text, &mut strtab, symbols);
 
         let str_text     = shstrtab.push(b".text");
         let str_strtab   = shstrtab.push(b".strtab");
