@@ -108,9 +108,9 @@ const SHT_STRTAB  : Word = 3;
 const SHF_WRITE    : Xword = 1;
 const SHF_ALLOC    : Xword = 2;
 const SHF_EXECINSTR: Xword = 4;
-const SHF_MERGE    : Xword = 8;
-const SHF_STRINGS  : Xword = 16;
-const SHF_INFO_LINK: Xword = 32;
+const SHF_MERGE    : Xword = 16;
+const SHF_STRINGS  : Xword = 32;
+const SHF_INFO_LINK: Xword = 64;
 
 #[repr(C)]
 struct ProgramHeader {
