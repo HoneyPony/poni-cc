@@ -241,23 +241,27 @@ impl<W: Write> ElfWriter<W> {
         let w = &mut self.writer;
 
         // Decide our section indices ahead of time
-        let shndx_null    : Section = 0;
-        let shndx_text    : Section = 1;
-        let shndx_strtab  : Section = 2;
-        let shndx_symtab  : Section = 3;
+        let shndx_null          : Section = 0;
+        let shndx_note_gnustack : Section = 1;
+        let shndx_text          : Section = 2;
+        let shndx_strtab        : Section = 3;
+        let shndx_symtab        : Section = 4;
         // TODO: Consider putting shstrtab first..?
-        let shndx_shstrtab: Section = 4;
+        let shndx_shstrtab      : Section = 5;
 
         let mut strtab   = Strtab::new();
         let mut shstrtab = Strtab::new();
 
         let symtab = build_symtab(shndx_text, &mut strtab, symbols);
 
-        let str_text     = shstrtab.push(b".text");
-        let str_strtab   = shstrtab.push(b".strtab");
-        let str_symtab   = shstrtab.push(b".symtab");
-        let str_shstrtab = shstrtab.push(b".shstrtab");
+        let str_note_gnustack = shstrtab.push(b".note.GNU-stack");
+        let str_text          = shstrtab.push(b".text");
+        let str_strtab        = shstrtab.push(b".strtab");
+        let str_symtab        = shstrtab.push(b".symtab");
+        let str_shstrtab      = shstrtab.push(b".shstrtab");
 
+        // The .note.GNU-stack section shouldn't take up any size, so 
+        // just don't compute an offset, I guess.
         let offset_text = size_of::<ElfHeader>();
         // TODO: Round up alignment??
         let offset_strtab = offset_text + text_section.len();
@@ -279,6 +283,21 @@ impl<W: Write> ElfWriter<W> {
             info: 0,
             addralign: 0,
             entsize: 0,
+        };
+
+        let sh_note_gnustack = SectionHeader {
+            name: str_note_gnustack,
+            typ: SHT_PROGBITS, // This is just the expected type, I guess
+
+            // In theory, everything else can be zero.
+            flags: 0,
+            addr: 0,
+            offset: 0,
+            size: 0,
+            link: 0,
+            info: 0,
+            addralign: 0,
+            entsize: 0
         };
 
         let sh_text = SectionHeader {
@@ -348,7 +367,7 @@ impl<W: Write> ElfWriter<W> {
             e_phentsize: size_of::<ProgramHeader>() as Half,
             e_phnum: 0,
             e_shentsize: size_of::<SectionHeader>() as Half,
-            e_shnum: 5, // 5 section headers
+            e_shnum: 6, // 6 section headers
             e_shstrndx: shndx_shstrtab,
         };
 
@@ -360,6 +379,7 @@ impl<W: Write> ElfWriter<W> {
         w.write_all(&shstrtab.current)?;
     
         sh_null.write(w)?;
+        sh_note_gnustack.write(w)?;
         sh_text.write(w)?;
         sh_strtab.write(w)?;
         sh_symtab.write(w)?;
