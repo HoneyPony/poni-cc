@@ -1,4 +1,4 @@
-use std::{io::{Cursor, Write}, path::Path, process::{Command, Stdio}};
+use std::{fs::File, io::{Cursor, Write}, path::Path, process::{Command, Stdio}};
 
 fn preprocess(use_cpp: bool, input: &[u8]) -> Vec<u8> {
     if use_cpp {
@@ -21,6 +21,45 @@ fn preprocess(use_cpp: bool, input: &[u8]) -> Vec<u8> {
     }
 
     return input.to_vec();
+}
+
+fn test_driver_manual_encoding(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) {
+    let output = preprocess(use_cpp, input);
+
+    // We expect the exit code to be truncated.
+    // Perhaps a more principled way of testing this would be to run an existing
+    // C compiler on the same source and compare the return codes.
+    let expected_ret = expected_ret as u8;
+    let expected_ret = expected_ret as i32;
+
+    let test_name = format!("{}-pony", test_name);
+
+    let output_path = Path::new("../testing-ground").join(&test_name);
+    let obj_output_path = Path::new("../testing-ground").join(format!("{}.o", &test_name));
+    let obj_output_file = File::create(&obj_output_path)
+        .expect(".o file");
+    
+    let output = Cursor::new(output);
+
+    // We can't use fastdrop here. In particular, the application needs to keep
+    // living long enough for the code to finish compiling, and for us to
+    // run the tester program.
+    crate::compile(output, obj_output_file, false, true)
+        .unwrap();
+
+    let mut linker = Command::new("gcc")
+        .arg("-o").arg(&output_path)
+        .arg(&obj_output_path)
+        .spawn().unwrap();
+    linker.wait().expect("linker");
+
+    // Now we should have a compiled executable.
+    let mut tester = Command::new(&output_path)
+        .spawn().unwrap();
+    let exit = tester.wait().unwrap();
+    let code = exit.code().unwrap();
+
+    assert_eq!(code, expected_ret);
 }
 
 fn test_driver(use_cpp: bool, test_name: &str, input: &[u8], expected_ret: i32) {
@@ -67,6 +106,15 @@ macro_rules! test {
         fn $name() {
             test_driver(true, stringify!($name), $c_src, $exit_code);
         }
+
+        paste::paste! {
+            #[test]
+            fn [<enc_ $name>]() {
+                // This is fine for now, although we might have our own CPP
+                // in the future.
+                test_driver_manual_encoding(true, stringify!($name), $c_src, $exit_code);
+            }
+        }
     }
 }
 
@@ -75,6 +123,19 @@ macro_rules! test_no_cpp {
         #[test]
         fn $name() {
             test_driver(false, stringify!($name), $c_src, $exit_code);
+        }
+
+        // Unfortunately, pulling in the paste! macro seems to be the best
+        // way to generate new names.
+        //
+        // (We can't just put them in e.g. mod encoding{} as it seems we're
+        // not allowed to redefine a module. I guess maybe instead they could
+        // each be impl {} for some struct??)
+        paste::paste! {
+            #[test]
+            fn [<enc_ $name>]() {
+                test_driver_manual_encoding(false, stringify!($name), $c_src, $exit_code);
+            }
         }
     }
 }
@@ -85,6 +146,14 @@ macro_rules! test_simple_expr {
         fn $name() {
             const C_SRC: &str = concat!("int main(void) { return ", $c_src, "; }");
             test_driver(false, stringify!($name), C_SRC.as_bytes(), $exit_code);
+        }
+
+        paste::paste! {
+            #[test]
+            fn [<enc_ $name>]() {
+                const C_SRC: &str = concat!("int main(void) { return ", $c_src, "; }");
+                test_driver_manual_encoding(false, stringify!($name), C_SRC.as_bytes(), $exit_code);
+            }
         }
     }
 }
