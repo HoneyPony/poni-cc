@@ -29,6 +29,12 @@ fn relational(op: BinaryOp) -> Option<CondCode> {
     }
 }
 
+fn mov(out: &mut Vec<x86_64::Instr>, src: Operand, dst: Operand) {
+    if src != dst {
+        out.push(Instr::Mov { src, dst });
+    }
+}
+
 fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
     match instr {
         ir::Instr::Return(val) => {
@@ -47,7 +53,7 @@ fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
 
             // We would like to get rid of the Mov where possible, as it's
             // pretty useless...
-            out.push(Instr::Mov { src: lower_val(src), dst: lower_var(dst) });
+            mov(out, lower_val(src), lower_var(dst));
             out.push(Instr::Unary { op: *op, operand: lower_var(dst) })
         }
         ir::Instr::Copy { src, dst } => {
@@ -67,7 +73,7 @@ fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
                     BinaryOp::Remainder => Register::Edx,
                     _ => unreachable!()
                 };
-                out.push(Instr::Mov { src: src.into(), dst: lower_var(dst) });
+                mov(out, src.into(), lower_var(dst));
                 // Done.
                 return;
             }
@@ -78,7 +84,7 @@ fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
                 out.push(Instr::Mov { src: lower_val(rhs), dst: Register::Ecx.into() });
                 // Copy the lhs into dst, then do dst shift= ecx.
                 let dst = lower_var(dst);
-                out.push(Instr::Mov { dst, src: lower_val(lhs) });
+                mov(out, lower_val(lhs), dst);
                 out.push(Instr::Shift { op: *op, dst });
                 return;
             }
@@ -98,7 +104,7 @@ fn lower(ctx: &mut Ctx, instr: &ir::Instr, out: &mut Vec<x86_64::Instr>) {
 
             let dst = lower_var(dst);
             // Copy src1 into dst, then do dst op= src2.
-            out.push(Instr::Mov { src: lower_val(lhs), dst });
+            mov(out, lower_val(lhs), dst);
             out.push(Instr::Binary { op: *op, dst, src: lower_val(rhs) })
         },
         ir::Instr::Jump(label) => {

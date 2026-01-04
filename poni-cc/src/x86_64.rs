@@ -74,7 +74,7 @@ impl CondCode {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Operand {
     Reg(Register, u8),
     Imm(StrKey),
