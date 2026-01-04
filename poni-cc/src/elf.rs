@@ -269,7 +269,7 @@ impl<W: Write> ElfWriter<W> {
         let sh_text = SectionHeader {
             name: str_text,
             typ: SHT_PROGBITS,
-            flags: SHF_ALLOC | SHF_EXECINSTR | SHF_MERGE,
+            flags: SHF_ALLOC | SHF_EXECINSTR,
             addr: 0,
             offset: offset_text.try_into().expect("offset too big"),
             size: text_section.len().try_into().expect("size too big"),
