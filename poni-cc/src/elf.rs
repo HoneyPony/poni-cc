@@ -130,7 +130,7 @@ struct StInfo(u8);
 
 impl StInfo {
     pub fn from(bind: u8, typ: u8) -> Self {
-        StInfo(bind << 4 + (typ & 0xF))
+        StInfo(bind << 4 | (typ & 0xF))
     }
 }
 
