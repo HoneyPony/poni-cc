@@ -299,6 +299,49 @@ fn do_write(opcode: &[u8], mem_reg_op: &Operand, reg_op: &Operand, binary: &mut 
     binary.text.extend_from_slice(&bytes.disp[0..bytes.disp_len as usize]);
 }
 
+fn write_general_unary(opcode: (u8, u8), op: &Operand, binary: &mut Binary) {
+    // TODO: We really need to clean up this repeated logic.
+    let mut mod_ = 0b00u8;
+    let reg  = opcode.1;
+    let mut rm   = 0b000u8;
+    let mut rex = REX_EMPTY;
+
+    let mut disp = [0; 4];
+    let mut disp_len = 0;
+
+    match op {
+        Operand::Reg(r, _) => {
+            mod_ = 0b11;
+            rm = r.low_3();
+            rex |= r.high_bit();
+        },
+        Operand::Stack(offset) => {
+            // Same as above.
+            rm = 0b101; // use ebp
+            if *offset <= 127 && *offset >= -128 {
+                mod_ = 0b01; // ebp + disp8
+                disp[0] = *offset as u8;
+                disp_len = 1;
+            }
+            else {
+                mod_ = 0b10; // ebp + disp32
+                disp.copy_from_slice(&offset.to_le_bytes());
+                disp_len = 4;
+            }
+        },
+        _ => unreachable!()
+    }
+
+    if rex != REX_EMPTY {
+        binary.text.push(rex);
+    }
+    binary.text.push(opcode.0);
+    binary.text.push(mod_ << 6 | reg << 3 | rm);
+
+    binary.text.extend_from_slice(&disp[0..disp_len]);
+
+}
+
 /// Helper function for writing the following combinations in x86:
 /// - reg <- reg/mem
 /// - reg/mem <- reg
@@ -396,7 +439,14 @@ impl Instr {
                 // The actual ret instruction:
                 binary.text.push(0xc3);
             }
-            Instr::Unary { op, operand } => todo!(),
+            Instr::Unary { op, operand } => {
+                let opcode = match op {
+                    UnaryOp::Complement => (0xF7, 2), // notl
+                    UnaryOp::Negate     => (0xF7, 3), // negl
+                    UnaryOp::Not => panic!("! should have lowered to Cmp"),
+                };
+                write_general_unary(opcode, operand, binary);
+            }
             Instr::Binary { op, dst, src } => {
                 write_general_opcode(ctx, binop_table(*op), src, dst, binary);
             },
