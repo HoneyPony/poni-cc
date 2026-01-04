@@ -193,8 +193,22 @@ impl Strtab {
     }
 }
 
+// Relevant:
+// From https://refspecs.linuxbase.org/elf/gabi4+/ch4.symtab.html :
+//   In each symbol table, all symbols with STB_LOCAL binding precede the weak 
+//   and global symbols. As ``Sections'', above describes, a symbol table
+//   section's sh_info section header member holds the symbol table index for
+//   the first non-local symbol. 
+//
+// Also note that we need one non-NULL Sym, apparently...?
+
 fn build_symtab(shndx: Section, strtab: &mut Strtab, symbols: &[Symbol]) -> Vec<u8> {
     let mut result = Vec::new();
+
+    let null_sym = Sym {
+        st_name: 0, st_info: StInfo(0), st_other: 0,  st_shndx: 0, st_value: 0, st_size: 0
+    };
+    null_sym.write(&mut result).unwrap();
 
     for symbol in symbols {
         let sym = Sym {
@@ -301,7 +315,9 @@ impl<W: Write> ElfWriter<W> {
             offset: offset_symtab.try_into().expect("offset too big"),
             size: symtab.len().try_into().expect("size too big"),
             link: shndx_strtab.into(),
-            info: 0,
+            // The index of the first non-local symbol, whatever that means.
+            // This might be significant if we have relocations...?
+            info: 1,
             addralign: 8,
             entsize: size_of::<Sym>().try_into().unwrap(),
         };
