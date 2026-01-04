@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crate::{ctx::Ctx, x86_64::*};
+use crate::{ctx::Ctx, elf::{ElfWriter, Symbol}, x86_64::*};
 
 /// Intermediate struct for binary code. Will probably eventually need to be
 /// ELF related or something?
@@ -72,9 +72,14 @@ impl Program {
 
         binary.fixup();
 
-        // We have yet to implement an ELF encoding. Instead, just write the
-        // whole text section out??
-        output.write_all(&binary.text)?;
+        let mut elf = ElfWriter::new(output);
+        let symbols = [
+            Symbol {
+                name: b"main",
+                offset: 0,
+            }
+        ];
+        elf.write(&binary.text, &symbols)?;
 
         Ok(())
     }
