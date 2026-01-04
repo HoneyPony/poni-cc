@@ -11,6 +11,7 @@ struct Binary {
     // Text section
     text: Vec<u8>,
     // Data section
+    #[expect(unused)]
     data: Vec<u8>,
 
     /// Offsets of labels from the text section

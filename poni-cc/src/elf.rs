@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! Support for ELF files.
 //! 
 //! This is going to be the main object file (and maybe executable) format that

@@ -30,6 +30,7 @@ impl Ctx {
         }
     }
 
+    #[expect(unused)]
     pub fn put_str(&mut self, str: &[u8]) -> StrId {
         if let Some(existing) = self.str_side_map.get(str) {
             return *existing;

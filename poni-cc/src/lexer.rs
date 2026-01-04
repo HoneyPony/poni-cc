@@ -176,7 +176,7 @@ impl StrKey {
 const INTERNAL_BUFFER_SIZE: usize = 512;
 
 impl<R: Read> Lexer<R> {
-    pub fn new(input: R, ctx: &mut Ctx) -> Self {
+    pub fn new(input: R, _ctx: &mut Ctx) -> Self {
         Lexer {
             next_byte: b' ',
             at_eof: false,
