@@ -72,7 +72,7 @@ impl ElfHeader {
 struct SectionHeader {
     name     : Word ,
     typ      : Word ,
-    flags    : Word ,
+    flags    : Xword,
     addr     : Addr ,
     offset   : Off  ,
     size     : Xword,
@@ -105,12 +105,12 @@ const SHT_PROGBITS: Word = 1;
 const SHT_SYMTAB  : Word = 2;
 const SHT_STRTAB  : Word = 3;
 
-const SHF_WRITE    : Word = 1;
-const SHF_ALLOC    : Word = 2;
-const SHF_EXECINSTR: Word = 4;
-const SHF_MERGE    : Word = 8;
-const SHF_STRINGS  : Word = 16;
-const SHF_INFO_LINK: Word = 32;
+const SHF_WRITE    : Xword = 1;
+const SHF_ALLOC    : Xword = 2;
+const SHF_EXECINSTR: Xword = 4;
+const SHF_MERGE    : Xword = 8;
+const SHF_STRINGS  : Xword = 16;
+const SHF_INFO_LINK: Xword = 32;
 
 #[repr(C)]
 struct ProgramHeader {
@@ -206,7 +206,8 @@ fn build_symtab(shndx: Section, strtab: &mut Strtab, symbols: &[Symbol]) -> Vec<
             st_size: 0,
         };
         
-        sym.write(&mut result);
+        // Infallible
+        sym.write(&mut result).unwrap();
     }
 
     result
@@ -246,8 +247,11 @@ impl<W: Write> ElfWriter<W> {
         // TODO: Round up alignment??
         let offset_strtab = offset_text + text_section.len();
         let offset_symtab = offset_strtab + strtab.current.len();
-        let offset_shstrtab = offset_strtab + symtab.len();
+        let offset_shstrtab = offset_symtab + symtab.len();
         let offset_sectionheaders = offset_shstrtab + shstrtab.current.len();
+
+        eprintln!("offsets:\n\ttext = {}\n\tstrtab = {}\n\tsymtab = {}\n\tshstrtab = {}\n\tsection headers = {}",
+            offset_text, offset_strtab, offset_symtab, offset_shstrtab, offset_sectionheaders);
 
         let sh_null = SectionHeader {
             name: 0,
@@ -327,8 +331,8 @@ impl<W: Write> ElfWriter<W> {
             e_phentsize: size_of::<ProgramHeader>() as Half,
             e_phnum: 0,
             e_shentsize: size_of::<SectionHeader>() as Half,
-            e_shnum: 0,
-            e_shstrndx: 0,
+            e_shnum: 5, // 5 section headers
+            e_shstrndx: shndx_shstrtab,
         };
 
         // Now, write everything out.

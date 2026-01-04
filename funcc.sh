@@ -1,4 +1,4 @@
 set -e
-cargo run -- --fun --no-cpp -o out -i "$1"
+cargo run --quiet -- --fun --no-cpp -o out -i "$1"
 # Also generate the other code for comparison
-cargo run -- -o out.s -i "$1"
+./target/debug/poni-cc-cli -o out.s -i "$1"
