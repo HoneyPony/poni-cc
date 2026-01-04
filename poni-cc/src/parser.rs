@@ -20,7 +20,7 @@ use std::io::Read;
 
 use rustc_hash::FxHashMap;
 
-use crate::{ctx::{Ctx, StrId}, lexer::{Lexer, StrKey, TokenType}};
+use crate::{ctx::Ctx, lexer::{Lexer, StrKey, TokenType}};
 use crate::ir::*;
 
 /// A single scope of vars, e.g. there are two different VarScopes in the following:

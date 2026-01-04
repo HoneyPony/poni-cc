@@ -272,7 +272,7 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
     match reg_op {
         Operand::Reg(r, _) => {
             reg = r.low_3();
-            rex |= (r.high_bit() << 2);
+            rex |= r.high_bit() << 2;
         }
         _ => unreachable!()
     }

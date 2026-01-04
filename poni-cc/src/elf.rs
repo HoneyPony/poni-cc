@@ -3,7 +3,7 @@
 //! This is going to be the main object file (and maybe executable) format that
 //! we support internally.
 
-use std::{io::Write, ops::Add};
+use std::io::Write;
 
 pub struct ElfWriter<W: Write> {
     writer: W,
