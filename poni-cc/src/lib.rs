@@ -3,6 +3,7 @@ use std::{io::Write, io::Read};
 use crate::{ctx::Ctx, parser::Parser};
 
 mod ctx;
+mod elf;
 mod ir;
 mod lexer;
 mod parser;
