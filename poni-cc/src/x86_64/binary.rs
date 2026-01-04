@@ -135,8 +135,6 @@ struct SpecialBytes {
     modrm: u8,
     disp: [u8; 4],
     disp_len: u8,
-    //sib: Option<(u8, u32)>,
-    operand: Option<u32>,
 }
 
 const REX_EMPTY: u8 = 0b0100_0000;
@@ -146,10 +144,12 @@ enum RegField {
     DupOperand,
 }
 
-fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: RegField, imm: i32) -> SpecialBytes {
-    let mut mod_ = 0b00u8;
-    let mut reg  = 0b000u8;
-    let mut rm   = 0b000u8;
+fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: RegField) -> SpecialBytes {
+    let mod_;
+    // Note that we DO check both RegField::Constant and RegField::DupOperand
+    // for initializing this eventually.
+    let mut reg= 0b000;
+    let rm;
 
     if let RegField::Constant(c) = reg_field {
         reg = c;
@@ -217,14 +217,13 @@ fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: RegField, imm: i32) ->
         modrm: mod_ << 6 | reg << 3 | rm,
         disp,
         disp_len,
-        operand: Some(imm as u32)
     }
 }
 
 fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
-    let mut mod_ = 0b00u8;
-    let mut reg  = 0b000u8;
-    let mut rm   = 0b000u8;
+    let mod_;
+    let reg;
+    let rm;
 
     let mut disp: [u8; 4] = [0; 4];
     let mut disp_len = 0;
@@ -278,17 +277,17 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
         _ => unreachable!()
     }
 
-    SpecialBytes { rex, modrm: mod_ << 6 | reg << 3 | rm, disp, disp_len, operand: None }
+    SpecialBytes { rex, modrm: mod_ << 6 | reg << 3 | rm, disp, disp_len }
 }
 
 fn do_write_imm(/* hack parameter for sub $imm, %rsp */ rex_oreq: u8, imm8: Option<(&[u8], RegField)>, imm32: (&[u8], RegField), mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
     let (opcode, operand, mut bytes) = 
         if imm_op >= -128 && imm_op <= 127 && let Some(imm8) = imm8 {
             let byte = imm_op as u8;
-            (imm8.0, &byte.to_le_bytes()[..], get_special_bytes_imm(mem_reg_op, imm8.1, imm_op))
+            (imm8.0, &byte.to_le_bytes()[..], get_special_bytes_imm(mem_reg_op, imm8.1))
         }
         else {
-            (imm32.0, &imm_op.to_le_bytes()[..], get_special_bytes_imm(mem_reg_op, imm32.1, imm_op))
+            (imm32.0, &imm_op.to_le_bytes()[..], get_special_bytes_imm(mem_reg_op, imm32.1))
         };
     bytes.rex |= rex_oreq;
 
@@ -321,10 +320,10 @@ fn do_write(opcode: &[u8], mem_reg_op: &Operand, reg_op: &Operand, binary: &mut 
 
 fn write_general_unary(opcode: (&[u8], u8), op: &Operand, binary: &mut Binary) {
     // TODO: We really need to clean up this repeated logic.
-    let mut mod_ = 0b00u8;
+    let mod_;
     // For instructions with no /N field, I guess just use 0.
     let reg  = opcode.1;
-    let mut rm   = 0b000u8;
+    let rm;
     let mut rex = REX_EMPTY;
 
     let mut disp = [0; 4];
