@@ -101,7 +101,8 @@ impl Function {
 
         // It's not very principled, but for now, we can hardcode the function
         // prelude.
-        binary.text.write_all(&[0x48, 0x89, 0xe5])?; // mov %rsp, %rbp
+        binary.text.write_all(&[0x55])?; //pushq %rbp 
+        binary.text.write_all(&[0x48, 0x89, 0xe5])?; // movq %rsp, %rbp
 
         // subq $imm32 sign extended, %rsp (more or less)
         //
@@ -372,9 +373,9 @@ impl Instr {
             Instr::Ret => {
                 // It's not very principled, but for now just hackily add on:
                 // mov %rbp, %rsp
-                binary.text.write_all(&[0x49, 0x89, 0xec]);
+                binary.text.write_all(&[0x48, 0x89, 0xec])?;
                 // pop %rbp
-                binary.text.write_all(&[0x5d]);
+                binary.text.write_all(&[0x5d])?;
 
                 // The actual ret instruction:
                 binary.text.push(0xc3);

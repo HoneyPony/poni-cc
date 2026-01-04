@@ -4,3 +4,4 @@
 # For funcc.sh
 /out
 /out.s
+/out.o
