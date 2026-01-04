@@ -299,9 +299,10 @@ fn do_write(opcode: &[u8], mem_reg_op: &Operand, reg_op: &Operand, binary: &mut 
     binary.text.extend_from_slice(&bytes.disp[0..bytes.disp_len as usize]);
 }
 
-fn write_general_unary(opcode: (u8, u8), op: &Operand, binary: &mut Binary) {
+fn write_general_unary(opcode: (&[u8], u8), op: &Operand, binary: &mut Binary) {
     // TODO: We really need to clean up this repeated logic.
     let mut mod_ = 0b00u8;
+    // For instructions with no /N field, I guess just use 0.
     let reg  = opcode.1;
     let mut rm   = 0b000u8;
     let mut rex = REX_EMPTY;
@@ -335,7 +336,7 @@ fn write_general_unary(opcode: (u8, u8), op: &Operand, binary: &mut Binary) {
     if rex != REX_EMPTY {
         binary.text.push(rex);
     }
-    binary.text.push(opcode.0);
+    binary.text.extend_from_slice(opcode.0);
     binary.text.push(mod_ << 6 | reg << 3 | rm);
 
     binary.text.extend_from_slice(&disp[0..disp_len]);
@@ -440,9 +441,9 @@ impl Instr {
                 binary.text.push(0xc3);
             }
             Instr::Unary { op, operand } => {
-                let opcode = match op {
-                    UnaryOp::Complement => (0xF7, 2), // notl
-                    UnaryOp::Negate     => (0xF7, 3), // negl
+                let opcode: (&[u8], _) = match op {
+                    UnaryOp::Complement => (&[0xF7], 2), // notl
+                    UnaryOp::Negate     => (&[0xF7], 3), // negl
                     UnaryOp::Not => panic!("! should have lowered to Cmp"),
                 };
                 write_general_unary(opcode, operand, binary);
@@ -490,8 +491,21 @@ impl Instr {
                 // Add us to the fixup list
                 binary.fixups.push((*str_id, fixup_addr));
             },
-            Instr::SetCC(cond_code, operand) => todo!(),
-            Instr::Idiv { rhs } => todo!(),
+            Instr::SetCC(cond_code, operand) => {
+                let op: (&[u8], _) = match cond_code {
+                    // These don't have a /N, so I guess just use 0??
+                    CondCode::E =>  (&[0x0F, 0x94], 0),
+                    CondCode::NE => (&[0x0F, 0x95], 0),
+                    CondCode::L =>  (&[0x0F, 0x9C], 0),
+                    CondCode::LE => (&[0x0F, 0x9E], 0),
+                    CondCode::G =>  (&[0x0F, 0x9F], 0),
+                    CondCode::GE => (&[0x0F, 0x9D], 0),
+                };
+                write_general_unary(op, operand, binary);
+            },
+            Instr::Idiv { rhs } => {
+                write_general_unary((&[0xF7], 7), rhs, binary);
+            },
             Instr::Mov { src, dst } => {
                 let op = Opcodes {
                     mem_dst_reg_src: &[0x89],
@@ -507,9 +521,9 @@ impl Instr {
                 //
                 // If we ever want to also support the imm8 encoding, we will
                 // need slightly different handling.
-                let opcode = match op {
-                    BinaryOp::Lshift => (0xD3, 4), // shll
-                    BinaryOp::Rshift => (0xD3, 7), // sarl
+                let opcode: (&[u8], _) = match op {
+                    BinaryOp::Lshift => (&[0xD3], 4), // shll
+                    BinaryOp::Rshift => (&[0xD3], 7), // sarl
                     _ => panic!("not a shift")
                 };
                 write_general_unary(opcode, dst, binary);
