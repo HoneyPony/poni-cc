@@ -99,6 +99,20 @@ impl Function {
         //cwriteln!(output, "\tmovq\t%rsp, %rbp");
         //cwriteln!(output, "\tsubq\t${}, %rsp", self.stack_size);
 
+        // It's not very principled, but for now, we can hardcode the function
+        // prelude.
+        binary.text.write_all(&[0x48, 0x89, 0xe5])?; // mov %rsp, %rbp
+
+        // subq $imm32 sign extended, %rsp (more or less)
+        //
+        // Note that the 0x83 encoding of subq with an 8 bit (?) immediate
+        // is much more efficient in some cases. TODO: Consider writing good
+        // code.
+        do_write_imm(/* hack rex to have W bit */0b1000,
+            &[0x81], 5,
+            &Operand::Reg(Register::Esp, 8), self.stack_size,
+            binary);
+
         for instr in &self.instructions {
             instr.write_as_binary(ctx, binary)?;
         }
@@ -245,8 +259,9 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
     SpecialBytes { rex, modrm: mod_ << 6 | reg << 3 | rm, disp, disp_len, operand: None }
 }
 
-fn do_write_imm(opcode: &[u8], reg_field: u8, mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
-    let bytes = get_special_bytes_imm(mem_reg_op, reg_field, imm_op);
+fn do_write_imm(/* hack parameter for sub $imm, %rsp */ rex_oreq: u8, opcode: &[u8], reg_field: u8, mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
+    let mut bytes = get_special_bytes_imm(mem_reg_op, reg_field, imm_op);
+    bytes.rex |= rex_oreq;
 
     if bytes.rex != REX_EMPTY {
         binary.text.push(bytes.rex);
@@ -287,7 +302,7 @@ fn write_general_opcode(ctx: &Ctx, opcode: Opcodes, src: &Operand, dst: &Operand
             let imm_val = i32::from_str_radix(imm_str, 10)
                 .expect("bad integer constant");
 
-            do_write_imm(opcode.mem_dst_imm32_src.0, opcode.mem_dst_imm32_src.1, dst, imm_val, binary)
+            do_write_imm(0, opcode.mem_dst_imm32_src.0, opcode.mem_dst_imm32_src.1, dst, imm_val, binary)
         }
         // stack <= reg
         (Operand::Reg(..), Operand::Stack(_)) => {
@@ -354,7 +369,16 @@ fn binop_table(op: BinaryOp) -> Opcodes {
 impl Instr {
     fn write_as_binary(&self, ctx: &Ctx, binary: &mut Binary) -> std::io::Result<()> {
         match self {
-            Instr::Ret => binary.text.push(0xc3),
+            Instr::Ret => {
+                // It's not very principled, but for now just hackily add on:
+                // mov %rbp, %rsp
+                binary.text.write_all(&[0x49, 0x89, 0xec]);
+                // pop %rbp
+                binary.text.write_all(&[0x5d]);
+
+                // The actual ret instruction:
+                binary.text.push(0xc3);
+            }
             Instr::Unary { op, operand } => todo!(),
             Instr::Binary { op, dst, src } => {
                 write_general_opcode(ctx, binop_table(*op), src, dst, binary);

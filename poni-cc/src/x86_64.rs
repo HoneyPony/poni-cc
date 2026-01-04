@@ -109,6 +109,7 @@ pub enum Register {
     Eax,
     Ecx,
     Edx,
+    Esp,
     R10d,
     R11d,
 }
@@ -126,12 +127,14 @@ impl Register {
             (Register::Eax , 4) => b"%eax",
             (Register::Ecx , 4) => b"%ecx",
             (Register::Edx , 4) => b"%edx",
+            (Register::Esp,  4) => b"%esp",
             (Register::R10d, 4) => b"%r10d",
             (Register::R11d, 4) => b"%r11d",
 
             (Register::Eax , 1) => b"%al",
             (Register::Ecx , 1) => b"%cl",
             (Register::Edx , 1) => b"%dl",
+            (Register::Esp,  1) => b"%sl", // ???
             (Register::R10d, 1) => b"%r10b",
             (Register::R11d, 1) => b"%r11b",
 
@@ -144,6 +147,8 @@ impl Register {
             Register::Eax => 0b000,
             Register::Ecx => 0b001,
             Register::Edx => 0b010,
+
+            Register::Esp => 0b100,
 
             // R8d => 0b000
             // R9d => 0b001
