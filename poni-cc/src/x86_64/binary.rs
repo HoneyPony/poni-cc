@@ -501,7 +501,19 @@ impl Instr {
                 };
                 write_general_opcode(ctx, op, src, dst, binary);
             },
-            Instr::Shift { op, dst } => todo!(),
+            Instr::Shift { op, dst } => {
+                // Right now this is effectively a unary op, because we get
+                // one destination operand and everything else is CL.
+                //
+                // If we ever want to also support the imm8 encoding, we will
+                // need slightly different handling.
+                let opcode = match op {
+                    BinaryOp::Lshift => (0xD3, 4), // shll
+                    BinaryOp::Rshift => (0xD3, 7), // sarl
+                    _ => panic!("not a shift")
+                };
+                write_general_unary(opcode, dst, binary);
+            },
             Instr::Label(str_id) => {
                 binary.label_offsets.insert(*str_id, binary.text.len());
             },
