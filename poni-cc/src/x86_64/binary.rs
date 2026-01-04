@@ -110,7 +110,7 @@ impl Function {
         // is much more efficient in some cases. TODO: Consider writing good
         // code.
         do_write_imm(/* hack rex to have W bit */0b1000,
-            Some((&[0x83], 5)), (&[0x81], 5),
+            Some((&[0x83], RegField::Constant(5))), (&[0x81], RegField::Constant(5)),
             &Operand::Reg(Register::Esp, 8), self.stack_size,
             binary);
 
@@ -125,8 +125,8 @@ impl Function {
 struct Opcodes {
     mem_dst_reg_src: &'static [u8],
     reg_dst_mem_src: &'static [u8],
-    mem_dst_sext_imm8_src: Option<(&'static [u8], u8)>,
-    mem_dst_imm32_src: (&'static[u8], u8),
+    mem_dst_sext_imm8_src: Option<(&'static [u8], RegField)>,
+    mem_dst_imm32_src: (&'static[u8], RegField),
 }
 
 struct SpecialBytes {
@@ -140,9 +140,19 @@ struct SpecialBytes {
 
 const REX_EMPTY: u8 = 0b0100_0000;
 
-fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: u8, imm: i32) -> SpecialBytes {
+enum RegField {
+    Constant(u8),
+    DupOperand,
+}
+
+fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: RegField, imm: i32) -> SpecialBytes {
     let mut mod_ = 0b00u8;
+    let mut reg  = 0b000u8;
     let mut rm   = 0b000u8;
+
+    if let RegField::Constant(c) = reg_field {
+        reg = c;
+    }
 
     let mut disp: [u8; 4] = [0; 4];
     let mut disp_len = 0;
@@ -156,6 +166,11 @@ fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: u8, imm: i32) -> Speci
             mod_ = 0b11;
             rm = r.low_3();
             rex |= r.high_bit();
+
+            if matches!(reg_field, RegField::DupOperand) {
+                reg = r.low_3();
+                rex |= r.high_bit() << 2;
+            }
         },
         Operand::Stack(offset) => {
             // Always use SIB with disp32?
@@ -188,13 +203,17 @@ fn get_special_bytes_imm(mem_reg_op: &Operand, reg_field: u8, imm: i32) -> Speci
                 disp.copy_from_slice(&offset.to_le_bytes());
                 disp_len = 4;
             }
+
+            if matches!(reg_field, RegField::DupOperand) {
+                panic!("bad assembly: can't have a memory operand here.");
+            }
         },
         _ => unreachable!()
     }
 
     SpecialBytes {
         rex,
-        modrm: mod_ << 6 | reg_field << 3 | rm,
+        modrm: mod_ << 6 | reg << 3 | rm,
         disp,
         disp_len,
         operand: Some(imm as u32)
@@ -261,7 +280,7 @@ fn get_special_bytes(mem_reg_op: &Operand, reg_op: &Operand) -> SpecialBytes {
     SpecialBytes { rex, modrm: mod_ << 6 | reg << 3 | rm, disp, disp_len, operand: None }
 }
 
-fn do_write_imm(/* hack parameter for sub $imm, %rsp */ rex_oreq: u8, imm8: Option<(&[u8], u8)>, imm32: (&[u8], u8), mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
+fn do_write_imm(/* hack parameter for sub $imm, %rsp */ rex_oreq: u8, imm8: Option<(&[u8], RegField)>, imm32: (&[u8], RegField), mem_reg_op: &Operand, imm_op: i32, binary: &mut Binary) {
     let (opcode, operand, mut bytes) = 
         if imm_op >= -128 && imm_op <= 127 && let Some(imm8) = imm8 {
             let byte = imm_op as u8;
@@ -370,6 +389,8 @@ fn write_general_opcode(ctx: &Ctx, opcode: Opcodes, src: &Operand, dst: &Operand
         // reg <= reg
         (Operand::Reg(..), Operand::Reg(..)) => {
             // IDK which thing is the best one here.
+            //
+            // Prefer reg_dst_mem_src because it should work for imul.
             do_write(opcode.reg_dst_mem_src, src, dst, binary);
         },
 
@@ -384,40 +405,43 @@ fn binop_table(op: BinaryOp) -> Opcodes {
         BinaryOp::Add => Opcodes {
             mem_dst_reg_src: &[0x01],
             reg_dst_mem_src: &[0x03],
-            mem_dst_sext_imm8_src: Some((&[0x83], 0)),
-            mem_dst_imm32_src: (&[0x81], 0),
+            mem_dst_sext_imm8_src: Some((&[0x83], RegField::Constant(0))),
+            mem_dst_imm32_src: (&[0x81], RegField::Constant(0)),
         },
         BinaryOp::Subtract => Opcodes {
             mem_dst_reg_src: &[0x29],
             reg_dst_mem_src: &[0x2B],
-            mem_dst_sext_imm8_src: Some((&[0x83], 5)),
-            mem_dst_imm32_src: (&[0x81], 5),
+            mem_dst_sext_imm8_src: Some((&[0x83], RegField::Constant(5))),
+            mem_dst_imm32_src: (&[0x81], RegField::Constant(5)),
         },
         BinaryOp::Multiply => Opcodes {
             mem_dst_reg_src: &[], // Not possible (?)
             reg_dst_mem_src: &[0x0F, 0xAF],
-            mem_dst_sext_imm8_src: None, // TODO
-            mem_dst_imm32_src: (&[], 0), // Not possible (?)
+            // Same as below.
+            mem_dst_sext_imm8_src: Some((&[0x6B], RegField::DupOperand)),
+            // In theory this is the 0x69 encoding, that dups its operand so
+            // that everything is fine.
+            mem_dst_imm32_src: (&[0x69], RegField::DupOperand),
         },
-        BinaryOp::Divide => todo!(),
-        BinaryOp::Remainder => todo!(),
+        BinaryOp::Divide => panic!("divide should have lowered to idiv"),
+        BinaryOp::Remainder => panic!("remainder should have lowered to idiv"),
         BinaryOp::And => Opcodes {
             mem_dst_reg_src: &[0x21],
             reg_dst_mem_src: &[0x23],
-            mem_dst_sext_imm8_src: Some((&[0x83], 4)),
-            mem_dst_imm32_src: (&[0x81], 4),
+            mem_dst_sext_imm8_src: Some((&[0x83], RegField::Constant(4))),
+            mem_dst_imm32_src: (&[0x81], RegField::Constant(4)),
         },
         BinaryOp::Or => Opcodes {
             mem_dst_reg_src: &[0x09],
             reg_dst_mem_src: &[0x0B],
-            mem_dst_sext_imm8_src: Some((&[0x83], 1)),
-            mem_dst_imm32_src: (&[0x81], 1),
+            mem_dst_sext_imm8_src: Some((&[0x83], RegField::Constant(1))),
+            mem_dst_imm32_src: (&[0x81], RegField::Constant(1)),
         },
         BinaryOp::Xor => Opcodes {
             mem_dst_reg_src: &[0x31],
             reg_dst_mem_src: &[0x33],
-            mem_dst_sext_imm8_src: Some((&[0x83], 6)),
-            mem_dst_imm32_src: (&[0x81], 6),
+            mem_dst_sext_imm8_src: Some((&[0x83], RegField::Constant(6))),
+            mem_dst_imm32_src: (&[0x81], RegField::Constant(6)),
         },
         BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEqual | BinaryOp::GreaterEqual | BinaryOp::Equal | BinaryOp::NotEqual => 
             panic!("comparison should have lowered to Cmp"),
@@ -456,8 +480,8 @@ impl Instr {
                 let op = Opcodes {
                     mem_dst_reg_src: &[0x39],
                     reg_dst_mem_src: &[0x3B],
-                    mem_dst_sext_imm8_src: Some((&[0x83], 7)),
-                    mem_dst_imm32_src: (&[0x81], 7),
+                    mem_dst_sext_imm8_src: Some((&[0x83], RegField::Constant(7))),
+                    mem_dst_imm32_src: (&[0x81], RegField::Constant(7)),
                 };
                 write_general_opcode(ctx, op, rhs, lhs, binary);
             },
@@ -511,7 +535,7 @@ impl Instr {
                     mem_dst_reg_src: &[0x89],
                     reg_dst_mem_src: &[0x8B],
                     mem_dst_sext_imm8_src: None,
-                    mem_dst_imm32_src: (&[0xC7], 0)
+                    mem_dst_imm32_src: (&[0xC7], RegField::Constant(0))
                 };
                 write_general_opcode(ctx, op, src, dst, binary);
             },

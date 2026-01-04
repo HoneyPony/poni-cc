@@ -410,6 +410,8 @@ pub fn replace_psuedoregister_pass(fun: &mut Function) {
     fun.stack_size = -offset;
 }
 
+// TODO: We could consider using some lower-numbered registers than r10d and
+// r11d as our scratch registers, so that we can generate fewer REX prefixes.
 pub fn fixup_pass(fun: &mut Function) {
     // I'm not actually sure how to do this in an efficient way. The book
     // suggests inserting new instructions, which is awkward in a Vec.
