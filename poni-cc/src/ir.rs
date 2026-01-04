@@ -5,6 +5,12 @@ pub struct Function {
     pub body: Vec<Instr>,
 }
 
+/// Wrapper type to indicate that a Var is specifically a temporary.
+/// 
+/// We may do this in a more principled way eventually.
+#[repr(transparent)]
+pub struct Tmp(pub StrId);
+
 pub enum Instr {
     Return(Val),
     Unary {
@@ -58,6 +64,10 @@ pub enum Val {
     /// Likely we will need a different representation for arrays, maybe
     /// just with an offset field or something.
     LValue(Var),
+
+    /// A temporary variable. In particular, may be freely overwritten and
+    /// repurposed as a new value.
+    Tmp(Var),
 }
 
 impl Val {
@@ -73,7 +83,18 @@ impl Val {
 
 impl From<Var> for Val {
     fn from(value: Var) -> Self {
+        // It's not safe to do anything but an RValue. Anything else gives 
+        // the compiler too much leeway.
+        //
+        // If you actually have a Tmp or LValue, use the appropriate enum
+        // constructors.
         Val::RValue(value)
+    }
+}
+
+impl From<Tmp> for Val {
+    fn from(value: Tmp) -> Self {
+        Val::Tmp(value.0)
     }
 }
 

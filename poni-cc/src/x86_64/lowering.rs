@@ -7,6 +7,7 @@ fn lower_val(val: &ir::Val) -> Operand {
         ir::Val::Constant(str_id) => Operand::Imm(*str_id),
         ir::Val::RValue(str_id) => Operand::Psuedo(*str_id),
         ir::Val::LValue(str_id) => Operand::Psuedo(*str_id),
+        ir::Val::Tmp(str_id) => Operand::Psuedo(*str_id),
     }
 }
 

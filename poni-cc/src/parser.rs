@@ -109,7 +109,7 @@ impl<R: Read> Parser<R> {
     fn promote_to_var(val: Val, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Var {
         match val {
             Val::Constant(_) => {
-                let var = ctx.tmp();
+                let var = ctx.tmp().0;
                 into.push(Instr::Copy { src: val, dst: var.into() });
                 var
 
@@ -120,6 +120,7 @@ impl<R: Read> Parser<R> {
             Val::LValue(str_id) => {
                 str_id
             }
+            Val::Tmp(str_id) => { str_id }
         }
     }
 
@@ -177,7 +178,7 @@ impl<R: Read> Parser<R> {
                 panic!("duplicate variable '{}'", ctx.get(&var_name));
             }
 
-            let var = ctx.tmp();
+            let var = ctx.var();
             // It should be safe to unwrap the last() because we always have
             // a global scope.
             self.variables.last_mut().unwrap().map.insert(var_name, var);
@@ -319,14 +320,14 @@ impl<R: Read> Parser<R> {
 
 
                 // Create the true value.
-                let dst = ctx.tmp();
-                into.push(Instr::Copy { src: Val::Constant(if is_or { ctx.zero() } else { ctx.one() }), dst });
+                let dst = ctx.steal_tmp(lhs);
+                into.push(Instr::Copy { src: Val::Constant(if is_or { ctx.zero() } else { ctx.one() }), dst: dst.0 });
                 // Jump to the end.
                 into.push(Instr::Jump(end_label));
 
                 // Create the false value.
                 into.push(Instr::Label(tf_label));
-                into.push(Instr::Copy { src: Val::Constant(if is_or { ctx.one() } else { ctx.zero() }), dst });
+                into.push(Instr::Copy { src: Val::Constant(if is_or { ctx.one() } else { ctx.zero() }), dst: dst.0 });
                 into.push(Instr::Label(end_label));
 
                 // Make sure to update lhs!
@@ -370,9 +371,11 @@ impl<R: Read> Parser<R> {
             else {
                 let op = BinaryOp::from(op);
                 let rhs = self.climb_precedence(ctx, into, prec + 1);
-                let dst = ctx.tmp();
+                // We are allowed to steal the lhs but not the rhs. I'm not
+                // entirely sure why that is...
+                let dst = ctx.steal_tmp(lhs);
 
-                into.push(Instr::Binary { op, dst, lhs, rhs });
+                into.push(Instr::Binary { op, dst: dst.0, lhs, rhs });
                 lhs = dst.into();
             }
         }
@@ -396,7 +399,7 @@ impl<R: Read> Parser<R> {
 
             let tmp = ctx.tmp();
             into.push(Instr::Copy {
-                dst: tmp,
+                dst: tmp.0,
                 src: atom
             });
 
@@ -477,8 +480,8 @@ impl<R: Read> Parser<R> {
                 // let dst = Self::promote_to_var(src, ctx, into);
 
                 let op = UnaryOp::from(op);
-                let dst = ctx.tmp();
-                into.push(Instr::Unary { op, dst, src });
+                let dst = ctx.steal_tmp(src);
+                into.push(Instr::Unary { op, dst: dst.0, src });
 
                 dst.into()
             },

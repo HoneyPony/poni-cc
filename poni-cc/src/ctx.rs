@@ -74,9 +74,26 @@ impl Ctx {
 
     /// Creates a new temporary variable, by giving it a StrId that does not
     /// map to any string.
-    pub fn tmp(&mut self) -> ir::Var {
+    pub fn tmp(&mut self) -> ir::Tmp {
         // No actual string is necessary, and we don't add this to the side
         // map either.
+        let id = self.strs.push(String::new());
+        ir::Tmp(id)
+    }
+
+    /// If the existing ir::Val is a temporary, steals its variable; otherwise
+    /// synthesizes a new temporary variable.
+    pub fn steal_tmp(&mut self, existing: ir::Val) -> ir::Tmp {
+        if let ir::Val::Tmp(tmp) = existing {
+            return ir::Tmp(tmp);
+        }
+        return self.tmp()
+    }
+
+    /// Same thing as tmp(), more or less, but slightly distinguished by not
+    /// using a wrapper type for now. It would be nice to maybe do this in a
+    /// more type-safe way.
+    pub fn var(&mut self) -> ir::Var {
         let id = self.strs.push(String::new());
         id
     }
