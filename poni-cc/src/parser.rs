@@ -186,7 +186,26 @@ impl<R: Read> Parser<R> {
             // Parse initializer
             if self.match_(ctx, TokenType::Equal) {
                 let initializer = self.expression(ctx, into);
-                into.push(Instr::Copy { src: initializer, dst: var });
+                if let Val::Tmp(tmp) = initializer {
+                    // If our initializer was a (temporary) variable, steal its identity.
+                    //
+                    // We did already create our own identity, but this is OK:
+                    // it is undefined behavior if we referred to ourselves in
+                    // any way other than e.g. sizeof() in our initializer (at
+                    // least, I think that's the case).
+                    //
+                    // Maaaaybe something bad could happen with e.g. a pointer?
+                    // Maybe we're allowed to store a pointer to ourselves and
+                    // not have it be invalidated? In that case, I guess we
+                    // should actually count the number of references to the var,
+                    // and only do this if it was referenced 0 times so far. :shrug:
+                    //
+                    // I'll say TODO: fix that.
+                    self.variables.last_mut().unwrap().map.insert(var_name, tmp);
+                }
+                else {
+                    into.push(Instr::Copy { src: initializer, dst: var });
+                }
             }
 
             self.expect(ctx, TokenType::Semicolon);
