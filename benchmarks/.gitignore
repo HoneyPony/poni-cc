@@ -1,5 +1,6 @@
 return_lots_of_ones.c
 many_vars.c
+many_vars_bigid.c
 many_vars_v2.c
 
 # For samply
