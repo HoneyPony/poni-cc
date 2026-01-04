@@ -78,6 +78,7 @@ struct SectionHeader {
     size     : Xword,
     link     : Word ,
     info     : Word ,
+    /// Alignment *requirement* of this section.
     addralign: Xword,
     entsize  : Xword,
 }
@@ -275,7 +276,7 @@ impl<W: Write> ElfWriter<W> {
             size: text_section.len().try_into().expect("size too big"),
             link: 0,
             info: 0,
-            addralign: 1,
+            addralign: 16, // align .text to 16 bytes
             entsize: 0,
         };
 
@@ -301,7 +302,7 @@ impl<W: Write> ElfWriter<W> {
             size: symtab.len().try_into().expect("size too big"),
             link: shndx_strtab.into(),
             info: 0,
-            addralign: 1,
+            addralign: 8,
             entsize: size_of::<Sym>().try_into().unwrap(),
         };
 
