@@ -16,6 +16,6 @@ This project has a couple of main goals:
 
 For the foreseeable future, however, the compiler will be in very much a prototyped
 phase. In particular, it is currently relying on an external C preprocessor and
-an external assembler and linker; I hope to eventually implement all of these
+an external ~~assembler and~~ linker; I hope to eventually implement all of these
 components in the compiler, which will likely be necessary for it to have competitive
-performance with `tcc`.
+performance with `tcc`. (An internal assembler is now implemented!)
