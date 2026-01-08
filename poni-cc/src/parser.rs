@@ -175,7 +175,7 @@ impl<R: Read> Parser<R> {
             // In the future, this will have to parse a whole type somehow...
             let var_name = self.expect_id(ctx);
             if self.lookup_var(var_name).is_some() {
-                panic!("duplicate variable '{}'", ctx.get(&var_name));
+                panic!("duplicate variable '{}'", ctx.get(&var_name, &mut [0; 8]));
             }
 
             let var = ctx.var();
@@ -450,7 +450,7 @@ impl<R: Read> Parser<R> {
                 self.advance(ctx);
 
                 let Some(var) = self.lookup_var(var_name) else {
-                    panic!("unresolved identifier '{}'", ctx.get(&var_name));
+                    panic!("unresolved identifier '{}'", ctx.get(&var_name, &mut [0; 8]));
                 };
 
                 // Identifiers produce an LValue.

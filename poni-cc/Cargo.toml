@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 paste = "1.0.15"
-poni-arena = { git = "https://github.com/HoneyPony/poniescript", version = "0.1.0" }
+poni-arena = { git = "https://github.com/HoneyPony/poniescript", branch = "misc", version = "0.1.0" }
 rustc-hash = "2.1.1"

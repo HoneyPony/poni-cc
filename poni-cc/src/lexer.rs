@@ -4,7 +4,9 @@
 //! strings, which are then matched against keywords. Then, operators and other
 //! special characters are handled specially.
 
-use std::{io::Read, num::NonZeroU8};
+use std::{io::Read, num::{NonZeroU8, NonZeroU64}};
+
+use poni_arena::ArenaKey;
 
 use crate::ctx::{Ctx, StrId};
 
@@ -147,29 +149,42 @@ impl std::fmt::Display for TokenType {
     }
 }
 
-const STRKEY_SIZE: usize = 11;
+const STRKEY_SIZE: usize = 7;
 
 /// A key, sort of like StrId, except that can store small strings inline.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum StrKey {
-    Id(StrId),
-    Bytes(NonZeroU8, [u8; STRKEY_SIZE]),
-}
+pub struct StrKey(pub NonZeroU64);
+
+
+//     Id(StrId),
+//     Bytes(NonZeroU8, [u8; STRKEY_SIZE]),
+// }
 
 impl StrKey {
     pub fn from_known_bytes(bytes: &[u8]) -> StrKey {
         let len = bytes.len();
         assert!(len <= STRKEY_SIZE);
 
-        let mut key = [0u8; STRKEY_SIZE];
-        let subslice = &mut key[0..len];
+        let mut key = [0u8; STRKEY_SIZE + 1];
 
-        let len = len as u8;
-        let len = NonZeroU8::new(len).unwrap();
+        key[key.len() - 1] = len as u8;
+
+        let subslice: &mut[u8] = &mut key[0..len];
         
         subslice.copy_from_slice(bytes);
 
-        return StrKey::Bytes(len, key)
+        StrKey(NonZeroU64::try_from(u64::from_le_bytes(key)).unwrap())
+    }
+
+    pub fn from_key(key: StrId) -> Self {
+        let mut bytes = [0u8; 8];
+
+        let as_u32 = key.to_nonzero_u32();
+        let subslice = &mut bytes[0..4];
+        subslice.copy_from_slice(&as_u32.get().to_le_bytes());
+
+        // SAFETY: key is nonzero, so we must also be nonzero.
+        unsafe { StrKey(NonZeroU64::try_from(u64::from_le_bytes(bytes)).unwrap_unchecked()) }
     }
 }
 
@@ -248,17 +263,19 @@ impl<R: Read> Lexer<R> {
             // Safe because we've checked its less than 11
             let len_us = self.next_buf.len();
             let len = len_us as u8;
-            if let Ok(nonzero) = NonZeroU8::try_from(len) {
-                let mut buf: [u8; STRKEY_SIZE] = [0; STRKEY_SIZE];
-                let subslice = &mut buf[0..len_us];
-                subslice.copy_from_slice(&self.next_buf);
 
-                return StrKey::Bytes(nonzero, buf);
-            }
+            let mut buf: [u8; STRKEY_SIZE + 1] = [0; STRKEY_SIZE + 1];
+            let subslice = &mut buf[0..len_us];
+            subslice.copy_from_slice(&self.next_buf);
+
+            buf[buf.len() - 1] = len;
+            let as_u64 = u64::from_le_bytes(buf);
+
+            return StrKey(NonZeroU64::try_from(as_u64).unwrap())
         }
 
         let str = ctx.put_and_clear_str(&mut self.next_buf);
-        return StrKey::Id(str)
+        return StrKey::from_key(str)
     }
 
     fn token_from_buf(&mut self, ctx: &mut Ctx, is_ident: bool) -> TokenType {
@@ -294,11 +311,15 @@ impl<R: Read> Lexer<R> {
         }
         let tok = if fast && (self.internal_buf_ptr - copy_from) <= STRKEY_SIZE {
             let len = self.internal_buf_ptr - copy_from;
-            let mut buf = [0u8; STRKEY_SIZE];
+            let mut buf = [0u8; STRKEY_SIZE + 1];
             let subslice = &mut buf[0..len];
             subslice.copy_from_slice(&self.internal_buffer[copy_from..self.internal_buf_ptr]);
+            buf[buf.len() - 1] = len as u8;
 
-            TokenType::Identifier(StrKey::Bytes(NonZeroU8::new(len as u8).unwrap(), buf))
+            let as_u64 = u64::from_le_bytes(buf);
+            let key = StrKey(NonZeroU64::try_from(as_u64).unwrap());
+
+            TokenType::Identifier(key)
         }
         else {
             self.next_buf.extend_from_slice(&self.internal_buffer[copy_from..self.internal_buf_ptr]);

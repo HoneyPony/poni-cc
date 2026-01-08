@@ -370,7 +370,8 @@ fn write_general_opcode(ctx: &Ctx, opcode: Opcodes, src: &Operand, dst: &Operand
     match (src, dst) {
         // Immediate form
         (Operand::Imm(val), Operand::Stack(_) | Operand::Reg(..)) => {
-            let imm_str = ctx.get(val);
+            let mut buf = [0; 8];
+            let imm_str = ctx.get(val,  &mut buf);
 
             // TODO: More principled integer value checking.
             let imm_val = i32::from_str_radix(imm_str, 10)

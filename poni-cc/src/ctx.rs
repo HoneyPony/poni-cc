@@ -1,4 +1,6 @@
-use poni_arena::{Arena, define_arena_key};
+use std::num::NonZeroU32;
+
+use poni_arena::{Arena, ArenaKey, define_arena_key};
 use rustc_hash::FxHashMap;
 
 use crate::{ir, lexer::StrKey};
@@ -61,16 +63,32 @@ impl Ctx {
         self.strs.get(id)
     }
 
-    pub fn get<'a>(&'a self, str: &'a StrKey) -> &'a str {
-        match str {
-            StrKey::Id(str_id) => self.strs.get(*str_id),
-            // TODO: This is not really right. I guess instead I should somehow
-            // store the bytes themselves as a str? Or maybe just check them for
-            // utf8? Idk...
-            StrKey::Bytes(len, bytes) => unsafe {
-                str::from_utf8_unchecked(&bytes[0..len.get() as usize])
-            }
+    pub fn get<'a>(&'a self, str: &'a StrKey, buf: &'a mut [u8; 8]) -> &'a str {
+        let inner = str.0.get();
+        let as_bytes = inner.to_le_bytes();
+        if as_bytes[7] == 0 {
+            let mut as_bytes_u32: [u8; 4] = [0; 4];
+            as_bytes_u32.copy_from_slice(&as_bytes[0..4]);
+            let as_strid = u32::from_le_bytes(as_bytes_u32);
+            // SAFETY: This is the invariant of the StrKey type.
+            let as_strid = unsafe { StrId::from_nonzero_u32(NonZeroU32::new_unchecked(as_strid)) };
+            self.get_id(as_strid)
         }
+        else {
+            buf.copy_from_slice(&as_bytes);
+            let len = as_bytes[7] as usize;
+            let ret = &buf[0..len];
+            unsafe { str::from_utf8_unchecked(ret) }
+        }
+        // match str {
+        //     StrKey::Id(str_id) => self.strs.get(*str_id),
+        //     // TODO: This is not really right. I guess instead I should somehow
+        //     // store the bytes themselves as a str? Or maybe just check them for
+        //     // utf8? Idk...
+        //     StrKey::Bytes(len, bytes) => unsafe {
+        //         str::from_utf8_unchecked(&bytes[0..len.get() as usize])
+        //     }
+        // }
     }
 
     /// Creates a new temporary variable, by giving it a StrId that does not
@@ -108,11 +126,13 @@ impl Ctx {
     #[inline(always)]
     pub fn one(&self) -> StrKey {
         // TODO: Consider using from_bytes or w/e
-        StrKey::Id(self.constant_one)
+       //StrKey::Id(self.constant_one)
+       StrKey::from_known_bytes(b"1")
     }
 
     #[inline(always)]
     pub fn zero(&self) -> StrKey {
-        StrKey::Id(self.constant_zero)
+        StrKey::from_known_bytes(b"0")
+       //StrKey::Id(self.constant_zero)
     }
 }

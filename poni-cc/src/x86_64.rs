@@ -194,8 +194,8 @@ impl Program {
 
 impl Function {
     pub fn write_as_text<W: Write>(&self, ctx: &Ctx, output: &mut W) -> std::io::Result<()> {
-        cwriteln!(output, ".globl {}", ctx.get(&self.name));
-        cwriteln!(output, "{}:", ctx.get(&self.name));
+        cwriteln!(output, ".globl {}", ctx.get(&self.name, &mut [0; 8]));
+        cwriteln!(output, "{}:", ctx.get(&self.name, &mut [0; 8]));
 
         // Manually generate stack allocation & prelude. This saves us from
         // needing to add any additional instructions to the instructions vector.
@@ -360,7 +360,7 @@ impl Operand {
             Operand::Reg(register, size) => { output.write_all(register.as_asm(*size))?; }
             Operand::Imm(str_id) => {
                 output.write_all(b"$")?;
-                output.write_all(ctx.get(str_id).as_bytes())?;
+                output.write_all(ctx.get(str_id, &mut [0; 8]).as_bytes())?;
             }
             Operand::Psuedo(str_id) => {
                 // This is not actually valid, but it is good to be able to
