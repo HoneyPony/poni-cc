@@ -286,7 +286,7 @@ impl<R: Read> Parser<R> {
                     TokenType::AmpersandEqual | TokenType::PipeEqual |
                     TokenType::CaretEqual |
                     TokenType::LessLessEqual | TokenType::GreaterGreaterEqual => Some(5),
-            // Ternary => 10
+            TokenType::Question => Some(10),
             TokenType::PipePipe => Some(15),
             TokenType::AmpersandAmpersand => Some(20),
             TokenType::Pipe => Some(25),
@@ -421,6 +421,44 @@ impl<R: Read> Parser<R> {
                     // Maybe not.
                     panic!("assignment to non-lvalue");
                 }
+            }
+            // Ternary operator
+            else if matches!(op, TokenType::Question) {
+                // To properly handle this, we must short circuit evaluation.
+                // We've already evaluated the condition, i.e. LHS, which is
+                // fine. But now we have to skip *either* of the branches if
+                // they aren't taken.
+                //
+                // So, we start by jumping to the else/false branch.
+                let label_else = ctx.label("tern_f");
+                into.push(Instr::JumpIfZero { condition: lhs, target: label_else });
+
+                // Parse the true branch. This is just a regular expression()
+                // call, because it's sort of "internal" to the operator.
+                let true_val = self.expression(ctx, into);
+                let dst = ctx.steal_tmp(true_val);
+
+                // Copy the true_val into our dst.
+                into.push(Instr::Copy { src: true_val, dst: dst.0 });
+                // Jump over the false branch.
+                let label_end = ctx.label("tern_end");
+                into.push(Instr::Jump(label_end));
+
+                self.expect(ctx, TokenType::Colon);
+
+                // Now we parse the false branch.
+                // We use prec instead of prec + 1 as this operator is
+                // right-associative.
+                
+                // The false label comes before this code.
+                into.push(Instr::Label(label_else));
+                let false_val = self.climb_precedence(ctx, into, prec);
+                into.push(Instr::Copy { src: false_val, dst: dst.0 });
+
+                // Done.
+                into.push(Instr::Label(label_end));
+
+                lhs = dst.into();
             }
             else {
                 let op = BinaryOp::from(op);

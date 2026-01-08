@@ -616,3 +616,11 @@ test_no_cpp!(if_chain_4, 4, br"int main(void) {
     else a = 4;
     return a;
 }");
+
+test_no_cpp!(tern_simple, 40, br"int main(void) {
+    return 1 ? 40 : 20;
+}");
+
+test_no_cpp!(tern_simple2, 20, br"int main(void) {
+    return 0 ? 40 : 20;
+}");
