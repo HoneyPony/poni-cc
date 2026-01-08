@@ -34,6 +34,8 @@ pub enum TokenType {
     Int, Void,
     If, Else,
 
+    Goto,
+
     Return,
     LParen = b'(', RParen = b')',
 
@@ -97,6 +99,7 @@ impl TokenType {
             TokenType::Void => "'void'",
             TokenType::If => "'if'",
             TokenType::Else => "'else'",
+            TokenType::Goto => "'goto'",
             TokenType::Return => "'return'",
             TokenType::LParen => "'('",
             TokenType::RParen => "')'",
@@ -220,6 +223,7 @@ impl<R: Read> Lexer<R> {
                 (StrKey::from_known_bytes(b"if"), TokenType::If),
                 (StrKey::from_known_bytes(b"else"), TokenType::Else),
                 (StrKey::from_known_bytes(b"return"), TokenType::Return),
+                (StrKey::from_known_bytes(b"goto"), TokenType::Goto),
             ]
         }
     }

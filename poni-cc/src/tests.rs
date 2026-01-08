@@ -624,3 +624,22 @@ test_no_cpp!(tern_simple, 40, br"int main(void) {
 test_no_cpp!(tern_simple2, 20, br"int main(void) {
     return 0 ? 40 : 20;
 }");
+
+test_no_cpp!(goto_forward, 25, br"int main(void) {
+    int a = 30;
+    goto no_add;
+    a += 20;
+no_add:
+    a -= 5;
+    return a;
+}");
+
+test_no_cpp!(goto_back, 47, br"int main(void) {
+    int a = 30;
+    int flag = 0;
+backward:
+    if(flag) a += 17;
+    flag = 1;
+    if(!flag) goto backward;
+    return a;
+}");

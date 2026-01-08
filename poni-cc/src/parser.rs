@@ -16,8 +16,9 @@
 //! code from other applications. I'm not sure exactly how that should fit in;
 //! perhaps the Parser calls into something else..?
 
-use std::io::Read;
+use std::{io::Read};
 
+use ahash::HashMap;
 use rustc_hash::FxHashMap;
 
 use crate::{ctx::Ctx, lexer::{Lexer, StrKey, TokenType}};
@@ -44,27 +45,37 @@ impl VarScope {
 
 pub struct Parser<R: Read> {
     next_token: TokenType,
+    next_token_two: TokenType,
     lexer: Lexer<R>,
     variables: Vec<VarScope>,
+    /// Local labels in the current function. Cleared between functions.
+    /// 
+    /// Tuple: First item IR label, second item whether it was defined (or only
+    /// seen in gotos)
+    labels: HashMap<StrKey, (Label, bool)>,
 }
 
 impl<R: Read> Parser<R> {
     pub fn new(input: R, ctx: &mut Ctx) -> Self {
         let mut result = Parser {
             next_token: TokenType::Eof,
+            next_token_two: TokenType::Eof,
             lexer: Lexer::new(input, ctx),
             // Start with the global scope. (?)
             variables: vec![VarScope::new()],
+            labels: HashMap::default()
         };
 
         // Prime the parser so it has a legit token.
+        result.advance(ctx);
         result.advance(ctx);
         result
     }
 
     fn advance(&mut self, ctx: &mut Ctx) -> TokenType {
         let result = self.next_token;
-        self.next_token = self.lexer.next(ctx);
+        self.next_token = self.next_token_two;
+        self.next_token_two = self.lexer.next(ctx);
 
         result
     }
@@ -142,6 +153,9 @@ impl<R: Read> Parser<R> {
         // New scope for the function's variables
         self.variables.push(VarScope::new());
 
+        // Reset per-function labels
+        self.labels.clear();
+
         self.expect(ctx, TokenType::Int);
         let ident = self.expect_id(ctx);
         self.expect(ctx, TokenType::LParen);
@@ -160,6 +174,13 @@ impl<R: Read> Parser<R> {
         // If the function doesn't terminate with a return statement, add one.
         if !matches!(instructions.last(), Some(Instr::Return(_))) {
             instructions.push(Instr::Return(Val::Constant(ctx.zero())));
+        }
+
+        for label in self.labels.values() {
+            if !label.1 {
+                // We actually didn't save the name of the label. Oops.
+                panic!("undefined label");
+            }
         }
 
         // TODO: We probably want to make the ident.str just a property of
@@ -263,6 +284,44 @@ impl<R: Read> Parser<R> {
                     // if_false label after the inner statement.
                     into.push(Instr::Label(if_false));
                 }
+            }
+            // Label
+            TokenType::Identifier(label) if matches!(self.next_token_two, TokenType::Colon) => {
+                // Eat the id and the colon
+                self.expect_id(ctx);
+                self.expect(ctx, TokenType::Colon);
+
+                // To do this right, we're gonna want to do it like this:
+                // - If we see the goto before the label, insert something like
+                //   (ir_label, false)
+                // - Set the second member of the tuple to true in the label
+                // - Error if it was already true
+                //
+                // We can check if there's an undefined label (i.e. used in goto,
+                // not defined in the function() by iterating through the hashmap
+                // at the end.
+                let (ir_label, _) = *self.labels.entry(label)
+                    .and_modify(|(_, defined)| {
+                        if *defined {
+                            panic!("duplicate label '{}'", ctx.get(&label, &mut[0; 8]))
+                        }
+                        // Got the label
+                        *defined = true;
+                    })
+                    // If we're inserting it it's definitely defined
+                    .or_insert_with(|| (ctx.label("c"), true));
+                into.push(Instr::Label(ir_label));
+            }
+            TokenType::Goto => {
+                self.expect(ctx, TokenType::Goto); // Eat goto
+                let label = self.expect_id(ctx);
+                let (ir_label, _) = *self.labels.entry(label)
+                    // If we had to make the IR label from the goto, it might
+                    // end up being undefined.
+                    .or_insert_with(|| (ctx.label("c"), false));
+                into.push(Instr::Jump(ir_label));
+
+                self.expect(ctx, TokenType::Semicolon);
             }
             _ => {
                 self.expression(ctx, into);
