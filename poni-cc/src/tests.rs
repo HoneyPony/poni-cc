@@ -546,3 +546,73 @@ test_no_cpp!(inc_dec_complex, 1, br"int main(void) {
 
     return (a == 3 && b == -1 && c1 == -2 && d1 == 0 && c2 == -3 && d2 == 0 && d3 == 1);
 }");
+
+test_no_cpp!(if_simple, 40, br"int main(void) {
+    int a = 20;
+    if(1) a = 40;
+    return a;
+}");
+
+test_no_cpp!(if_simple2, 20, br"int main(void) {
+    int a = 20;
+    if(0) a = 40;
+    return a;
+}");
+
+test_no_cpp!(if_else_simple, 40, br"int main(void) {
+    int a = 20;
+    if(1) a = 40;
+    else a = 60;
+    return a;
+}");
+
+test_no_cpp!(if_else_simple2, 60, br"int main(void) {
+    int a = 20;
+    if(0) a = 40;
+    else a = 60;
+    return a;
+}");
+
+test_no_cpp!(if_chain_1, 1, br"int main(void) {
+    int a = 20;
+    int t = 1;
+    int f = 0;
+    if(t) a = 1;
+    else if(t) a = 2;
+    else if(t) a = 3;
+    else a = 4;
+    return a;
+}");
+
+test_no_cpp!(if_chain_2, 2, br"int main(void) {
+    int a = 20;
+    int t = 1;
+    int f = 0;
+    if(f) a = 1;
+    else if(t) a = 2;
+    else if(t) a = 3;
+    else a = 4;
+    return a;
+}");
+
+test_no_cpp!(if_chain_3, 3, br"int main(void) {
+    int a = 20;
+    int t = 1;
+    int f = 0;
+    if(f) a = 1;
+    else if(f) a = 2;
+    else if(t) a = 3;
+    else a = 4;
+    return a;
+}");
+
+test_no_cpp!(if_chain_4, 4, br"int main(void) {
+    int a = 20;
+    int t = 1;
+    int f = 0;
+    if(f) a = 1;
+    else if(f) a = 2;
+    else if(f) a = 3;
+    else a = 4;
+    return a;
+}");

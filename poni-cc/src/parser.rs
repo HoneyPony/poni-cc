@@ -229,6 +229,41 @@ impl<R: Read> Parser<R> {
                 // Skip empty statements.
                 self.advance(ctx);
             }
+            TokenType::If => {
+                self.expect(ctx, TokenType::If);
+                self.expect(ctx, TokenType::LParen);
+
+                let condition = self.expression(ctx, into);
+                
+                self.expect(ctx, TokenType::RParen);
+
+                let if_false = ctx.label("if_f");
+
+                // If the condition is false, jump to the if_false label.
+                into.push(Instr::JumpIfZero { condition, target: if_false });
+
+                // Otherwise, perform the inner statement.
+                self.statement(ctx, into);
+
+                if self.match_(ctx, TokenType::Else) {
+                    // If there is an else branch, then we need to jump to the
+                    // end label at the end of the 'if' branch.
+                    let if_end = ctx.label("if_end");
+                    into.push(Instr::Jump(if_end));
+
+                    // Now, we start the if_f label.
+                    into.push(Instr::Label(if_false));
+                    // And we generate the else code.
+                    self.statement(ctx, into);
+                    // Then the 'end' label will come after that.
+                    into.push(Instr::Label(if_end));
+                }
+                else {
+                    // If there was no else branch, then we simply generate the
+                    // if_false label after the inner statement.
+                    into.push(Instr::Label(if_false));
+                }
+            }
             _ => {
                 self.expression(ctx, into);
                 self.expect(ctx, TokenType::Semicolon);

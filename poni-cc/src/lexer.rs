@@ -32,6 +32,7 @@ pub enum TokenType {
     Constant(StrKey),
     
     Int, Void,
+    If, Else,
 
     Return,
     LParen = b'(', RParen = b')',
@@ -53,6 +54,9 @@ pub enum TokenType {
     Caret     = b'^',
     Less      = b'<',
     Greater   = b'>',
+
+    Colon    = b':',
+    Question = b'?',
     
     BangEqual,
     EqualEqual,
@@ -91,6 +95,8 @@ impl TokenType {
             TokenType::Constant(_) => "numerical constant",
             TokenType::Int => "'int'",
             TokenType::Void => "'void'",
+            TokenType::If => "'if'",
+            TokenType::Else => "'else'",
             TokenType::Return => "'return'",
             TokenType::LParen => "'('",
             TokenType::RParen => "')'",
@@ -120,6 +126,9 @@ impl TokenType {
             TokenType::GreaterGreater => "'>>'",
             TokenType::LessEqual => "'<='",
             TokenType::GreaterEqual => "'>='",
+
+            TokenType::Colon    => "':'",
+            TokenType::Question => "'?'",
 
             // Arithmetic compound assignment
             TokenType::PlusEqual    => "'+='",
@@ -208,6 +217,8 @@ impl<R: Read> Lexer<R> {
                 // search.
                 (StrKey::from_known_bytes(b"int"), TokenType::Int),
                 (StrKey::from_known_bytes(b"void"), TokenType::Void),
+                (StrKey::from_known_bytes(b"if"), TokenType::If),
+                (StrKey::from_known_bytes(b"else"), TokenType::Else),
                 (StrKey::from_known_bytes(b"return"), TokenType::Return),
             ]
         }
@@ -398,6 +409,8 @@ impl<R: Read> Lexer<R> {
             b'}' => self.token(TokenType::RBrace),
             b';' => self.token(TokenType::Semicolon),
             b'~' => self.token(TokenType::Tilde),
+            b':' => self.token(TokenType::Colon),
+            b'?' => self.token(TokenType::Question),
             b'^' => self.choose_match_one(b'=',
                 TokenType::CaretEqual, TokenType::Caret),
             b'=' => self.choose_match_one(b'=',
