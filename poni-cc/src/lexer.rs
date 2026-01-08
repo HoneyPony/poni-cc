@@ -4,9 +4,7 @@
 //! strings, which are then matched against keywords. Then, operators and other
 //! special characters are handled specially.
 
-use std::{io::Read, num::{NonZeroU8, NonZeroU64}};
-
-use poni_arena::ArenaKey;
+use std::{io::Read, num::NonZeroU64};
 
 use crate::ctx::{Ctx, StrId};
 
