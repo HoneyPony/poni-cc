@@ -36,6 +36,9 @@ pub enum TokenType {
 
     Goto,
 
+    For, While, Switch,
+    Break, Continue,
+
     Return,
     LParen = b'(', RParen = b')',
 
@@ -101,6 +104,11 @@ impl TokenType {
             TokenType::Else => "'else'",
             TokenType::Goto => "'goto'",
             TokenType::Return => "'return'",
+            TokenType::For => "'for'",
+            TokenType::While => "'while'",
+            TokenType::Switch => "'switch'",
+            TokenType::Break => "'break'",
+            TokenType::Continue => "'continue'",
             TokenType::LParen => "'('",
             TokenType::RParen => "')'",
             TokenType::LBrace => "'{'",
@@ -201,7 +209,9 @@ impl StrKey {
 const INTERNAL_BUFFER_SIZE: usize = 512;
 
 impl<R: Read> Lexer<R> {
-    pub fn new(input: R, _ctx: &mut Ctx) -> Self {
+    pub fn new(input: R, ctx: &mut Ctx) -> Self {
+        let strkey_continue = StrKey::from_key(ctx.put_str(b"continue"));
+
         Lexer {
             next_byte: b' ',
             at_eof: false,
@@ -224,6 +234,11 @@ impl<R: Read> Lexer<R> {
                 (StrKey::from_known_bytes(b"else"), TokenType::Else),
                 (StrKey::from_known_bytes(b"return"), TokenType::Return),
                 (StrKey::from_known_bytes(b"goto"), TokenType::Goto),
+                (StrKey::from_known_bytes(b"for"), TokenType::For),
+                (StrKey::from_known_bytes(b"while"), TokenType::While),
+                (StrKey::from_known_bytes(b"switch"), TokenType::Switch),
+                (StrKey::from_known_bytes(b"break"), TokenType::Break),
+                (strkey_continue, TokenType::Continue),
             ]
         }
     }
