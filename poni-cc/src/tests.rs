@@ -660,3 +660,40 @@ test_no_cpp!(block_simple, 42, br"int main(void) {
 
     return sum;
 }");
+
+test_no_cpp!(while_simple, 37, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    while(counter < 5) {
+        mul *= 2;
+        counter++;
+    }
+    return mul + counter;
+}");
+
+test_no_cpp!(while_with_break, 11, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    while(counter < 5) {
+        mul *= 2;
+        counter++;
+
+        if(counter >= 3) break;
+    }
+    return mul + counter;
+}");
+
+test_no_cpp!(while_with_continue, 13, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    while(counter < 5) {
+        if(counter < 2) {
+            ++counter;
+            continue;
+        }
+
+        mul *= 2;
+        counter++;
+    }
+    return mul + counter;
+}");

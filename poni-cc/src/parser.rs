@@ -53,6 +53,13 @@ pub struct Parser<R: Read> {
     /// Tuple: First item IR label, second item whether it was defined (or only
     /// seen in gotos)
     labels: HashMap<StrKey, (Label, bool)>,
+
+    /// The Label, if any, that 'continue' should jump to. Updated when we
+    /// parse/finish parsing a loop.
+    current_continue: Option<Label>,
+    /// The Label, if any, that 'break' should jump to. Updated when we
+    /// parse/finish parsing a loop or switch.
+    current_break: Option<Label>,
 }
 
 impl<R: Read> Parser<R> {
@@ -63,7 +70,10 @@ impl<R: Read> Parser<R> {
             lexer: Lexer::new(input, ctx),
             // Start with the global scope. (?)
             variables: vec![VarScope::new()],
-            labels: HashMap::default()
+            labels: HashMap::default(),
+
+            current_continue: None,
+            current_break: None,
         };
 
         // Prime the parser so it has a legit token.
@@ -296,6 +306,68 @@ impl<R: Read> Parser<R> {
                     // if_false label after the inner statement.
                     into.push(Instr::Label(if_false));
                 }
+            }
+            TokenType::Break => {
+                self.expect(ctx, TokenType::Break);
+
+                let Some(label) = self.current_break else {
+                    panic!("break must be inside a loop or switch");
+                };
+
+                into.push(Instr::Jump(label));
+                self.expect(ctx, TokenType::Semicolon);
+            }
+            TokenType::Continue => {
+                self.expect(ctx, TokenType::Continue);
+
+                let Some(label) = self.current_continue else {
+                    panic!("continue must be inside a loop");
+                };
+
+                into.push(Instr::Jump(label));
+                self.expect(ctx, TokenType::Semicolon);
+            }
+            TokenType::While => {
+                self.expect(ctx, TokenType::While);
+                self.expect(ctx, TokenType::LParen);
+
+                // Code structure:
+                // begin-loop:
+                //     c <= <evaluate condition>
+                //     JumpIfZero c, end-loop
+                //     <loop body>
+                //     Jump begin-loop
+                // end-loop:
+
+                let begin_loop = ctx.label("while_b");
+                let end_loop = ctx.label("while_e");
+
+                // I should maybe consider breaking these into helper functions
+                let enclosing_break = self.current_break;
+                let enclosing_continue = self.current_continue;
+
+                // Break goes to the end of the loop
+                self.current_break = Some(end_loop);
+                // Continue goes back to the begin of the loop
+                self.current_continue = Some(begin_loop);
+
+                into.push(Instr::Label(begin_loop));
+
+                // Now we parse the condition.
+                let condition = self.expression(ctx, into);
+                into.push(Instr::JumpIfZero { condition, target: end_loop });
+
+                self.expect(ctx, TokenType::RParen);
+
+                // Parse the loop body.
+                self.statement(ctx, into);
+
+                // Add the jump to the beginning, and the end-loop label.
+                into.push(Instr::Jump(begin_loop));
+                into.push(Instr::Label(end_loop));
+
+                self.current_break = enclosing_break;
+                self.current_continue = enclosing_continue;
             }
             // Label
             TokenType::Identifier(label) if matches!(self.next_token_two, TokenType::Colon) => {
