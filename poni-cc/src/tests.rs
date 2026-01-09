@@ -755,3 +755,73 @@ test_no_cpp!(dowhile_with_continue, 13, br"int main(void) {
     } while(counter < 5);
     return mul + counter;
 }");
+
+test_no_cpp!(for_simple, 37, br"int main(void) {
+    int mul = 1;
+    for(int counter = 0; counter < 5; counter++) {
+        mul *= 2;
+    }
+    return mul + counter;
+}");
+
+test_no_cpp!(for_not_declare, 37, br"int main(void) {
+    int mul = 1;
+    int counter = 999;
+    for(counter = 0; counter < 5; counter++) {
+        mul *= 2;
+    }
+    return mul + counter;
+}");
+
+test_no_cpp!(for_no_expr1, 37, br"int main(void) {
+    int mul = 1;
+    int counter = 0;
+    for(; counter < 5; counter++) {
+        mul *= 2;
+    }
+    return mul + counter;
+}");
+
+test_no_cpp!(for_no_expr2, 37, br"int main(void) {
+    int mul = 1;
+    int counter = 0;
+    for(;; counter++) {
+        if(counter >= 5) break;
+        mul *= 2;
+    }
+    return mul + counter;
+}");
+
+test_no_cpp!(for_no_expr3, 37, br"int main(void) {
+    int mul = 1;
+    int counter = 0;
+    for(;;) {
+        mul *= 2;
+
+        counter += 1;
+
+        if(counter >= 5) break;
+    }
+    return mul + counter;
+}");
+
+test_no_cpp!(for_with_break, 11, br"int main(void) {
+    int mul = 1;
+    for(int counter = 0; counter < 5; counter++) {
+        mul *= 2;
+
+        if(counter >= 3) break;
+    }
+    return mul + counter;
+}");
+
+// Something kind of cool: We don't need to manually increment the counter
+// in the 'continue' branch of this test. That's the power of for loops!
+test_no_cpp!(for_with_continue, 13, br"int main(void) {
+    int mul = 1;
+    for(int counter = 0; counter < 5; counter++) {
+        if(counter < 2) continue;
+        mul *= 2;
+    }
+    return mul + counter;
+}");

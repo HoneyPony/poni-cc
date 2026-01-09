@@ -157,6 +157,14 @@ impl<R: Read> Parser<R> {
         }
     }
 
+    /// Returns Some() if we match a type, None otherwise. Used to parse
+    /// the types in declarations in block items and for-loops.
+    fn match_type(&mut self, ctx: &mut Ctx) -> Option<()> {
+        // For now, we don't actually have any real types, so just return
+        // a () if we match an 'int' keyword.
+        self.match_(ctx, TokenType::Int).then_some(())
+    }
+
     pub fn program(&mut self, ctx: &mut Ctx) -> Vec<Function> {
         let mut result = Vec::new();
 
@@ -211,45 +219,51 @@ impl<R: Read> Parser<R> {
         Function { name: ident, body: instructions }
     }
 
+    /// Finishes parsing a declaration with the given type. Places the variable
+    /// into the innermost scope. Does NOT expect a semicolon at the end.
+    fn finish_declaration(&mut self, ctx: &mut Ctx, _type: (), into: &mut Vec<Instr>) {
+        // In the future, this will have to parse a whole type somehow...
+        let var_name = self.expect_id(ctx);
+        if self.lookup_var_in_current_scope(var_name).is_some() {
+            panic!("duplicate variable '{}'", ctx.get(&var_name, &mut [0; 8]));
+        }
+
+        let var = ctx.var();
+        // It should be safe to unwrap the last() because we always have
+        // a global scope.
+        self.variables.last_mut().unwrap().map.insert(var_name, var);
+
+        // Parse initializer
+        if self.match_(ctx, TokenType::Equal) {
+            let initializer = self.expression(ctx, into);
+            if let Val::Tmp(tmp) = initializer {
+                // If our initializer was a (temporary) variable, steal its identity.
+                //
+                // We did already create our own identity, but this is OK:
+                // it is undefined behavior if we referred to ourselves in
+                // any way other than e.g. sizeof() in our initializer (at
+                // least, I think that's the case).
+                //
+                // Maaaaybe something bad could happen with e.g. a pointer?
+                // Maybe we're allowed to store a pointer to ourselves and
+                // not have it be invalidated? In that case, I guess we
+                // should actually count the number of references to the var,
+                // and only do this if it was referenced 0 times so far. :shrug:
+                //
+                // I'll say TODO: fix that.
+                self.variables.last_mut().unwrap().map.insert(var_name, tmp);
+            }
+            else {
+                into.push(Instr::Copy { src: initializer, dst: var });
+            }
+        }
+    }
+
     pub fn block_item(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) {
-        if self.match_(ctx, TokenType::Int) {
+        if let Some(_type) = self.match_type(ctx) {
             // Declaration
 
-            // In the future, this will have to parse a whole type somehow...
-            let var_name = self.expect_id(ctx);
-            if self.lookup_var_in_current_scope(var_name).is_some() {
-                panic!("duplicate variable '{}'", ctx.get(&var_name, &mut [0; 8]));
-            }
-
-            let var = ctx.var();
-            // It should be safe to unwrap the last() because we always have
-            // a global scope.
-            self.variables.last_mut().unwrap().map.insert(var_name, var);
-
-            // Parse initializer
-            if self.match_(ctx, TokenType::Equal) {
-                let initializer = self.expression(ctx, into);
-                if let Val::Tmp(tmp) = initializer {
-                    // If our initializer was a (temporary) variable, steal its identity.
-                    //
-                    // We did already create our own identity, but this is OK:
-                    // it is undefined behavior if we referred to ourselves in
-                    // any way other than e.g. sizeof() in our initializer (at
-                    // least, I think that's the case).
-                    //
-                    // Maaaaybe something bad could happen with e.g. a pointer?
-                    // Maybe we're allowed to store a pointer to ourselves and
-                    // not have it be invalidated? In that case, I guess we
-                    // should actually count the number of references to the var,
-                    // and only do this if it was referenced 0 times so far. :shrug:
-                    //
-                    // I'll say TODO: fix that.
-                    self.variables.last_mut().unwrap().map.insert(var_name, tmp);
-                }
-                else {
-                    into.push(Instr::Copy { src: initializer, dst: var });
-                }
-            }
+            self.finish_declaration(ctx, _type, into);
 
             self.expect(ctx, TokenType::Semicolon);
         }
@@ -409,6 +423,103 @@ impl<R: Read> Parser<R> {
                 self.current_break = enclosing_break;
                 self.current_continue = enclosing_continue;
             }
+            TokenType::For =>  {
+                // Two possible structurs for a for loop, for our single-pass
+                // compiler.
+                // 1). No additional Vec<Instr> required. This setup requires
+                // an extra Jump loop-begin instruction.
+                //
+                //     <initializer>
+                //     Jump loop-begin
+                // loop-expr:
+                //     <loop-expr>
+                // loop-begin:
+                //     c = <condition>
+                //     JumpIfZero c, loop-end
+                //     <loop-body>
+                //     Jump loop-expr
+                // loop-end:
+                //
+                // 2). Use an additional Vec<Instr> for the loop-expr than
+                // concatenate them at the end.
+                //     
+                //     <initializer>
+                // loop-begin:
+                //     c = <condition>
+                //     JumpIfZero c, loop-end
+                //     <loop-body>
+                // loop-continue:
+                //     <loop-expr>
+                //     Jump loop-begin
+                // loop-end:
+                //
+                // Note that in both cases we still need three labels. This
+                // is because the continue expression must still execute the
+                // loop-expr.
+                //
+                // I guess for now we'll go with 2 because it seems slightly
+                // better.
+
+                // Note that we have to push a new variable scope BEFORE the
+                // for loop, because that's where its variable belongs.
+                self.variables.push(VarScope::new());
+
+                self.expect(ctx, TokenType::For);
+                self.expect(ctx, TokenType::LParen);
+
+                // The first item is either a declaration or an optional expression.
+                if let Some(_type) = self.match_type(ctx) {
+                    self.finish_declaration(ctx, _type, into);
+                }
+                else {
+                    self.optional_expression(ctx, TokenType::Semicolon, into);
+                }
+                self.expect(ctx, TokenType::Semicolon);
+
+                let begin_loop = ctx.label("for_b");
+                let end_loop = ctx.label("for_e");
+                let continue_loop = ctx.label("for_c");
+
+                // I should maybe consider breaking these into helper functions
+                let enclosing_break = self.current_break;
+                let enclosing_continue = self.current_continue;
+
+                self.current_break = Some(end_loop);
+                self.current_continue = Some(continue_loop);
+
+                into.push(Instr::Label(begin_loop));
+                let condition = self.optional_expression(ctx, TokenType::Semicolon, into);
+                self.expect(ctx, TokenType::Semicolon);
+                // If we got a condition, we must jump to the end of the loop
+                // if it's false.
+                //
+                // If there was no condition, it's an infinite loop, so just
+                // don't bother generating a jump.
+                if let Some(condition) = condition {
+                    into.push(Instr::JumpIfZero { condition, target: end_loop })
+                }
+
+                let mut expr = Vec::new();
+                self.optional_expression(ctx, TokenType::RParen, &mut expr);
+
+                self.expect(ctx, TokenType::RParen);
+
+                // Okay, now parse loop body.
+                self.statement(ctx, into);
+
+                into.push(Instr::Label(continue_loop));
+
+                // Append the loop expression to the body.
+                into.append(&mut expr);
+                // Jump back to condition.
+                into.push(Instr::Jump(begin_loop));
+                into.push(Instr::Label(end_loop));
+
+                self.current_break = enclosing_break;
+                self.current_continue = enclosing_continue;
+
+                self.variables.pop();
+            }
             // Label
             TokenType::Identifier(label) if matches!(self.next_token_two, TokenType::Colon) => {
                 // Eat the id and the colon
@@ -472,6 +583,13 @@ impl<R: Read> Parser<R> {
 
     pub fn expression(&mut self, ctx: &mut Ctx, into: &mut Vec<Instr>) -> Val {
         self.climb_precedence(ctx, into, 0)
+    }
+
+    fn optional_expression(&mut self, ctx: &mut Ctx, follow: TokenType, into: &mut Vec<Instr>) -> Option<Val> {
+        if self.next_token == follow {
+            return None;
+        }
+        Some(self.expression(ctx, into))
     }
 
     fn next_token_precedence(&self) -> Option<i32> {
