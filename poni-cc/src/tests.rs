@@ -756,12 +756,19 @@ test_no_cpp!(dowhile_with_continue, 13, br"int main(void) {
     return mul + counter;
 }");
 
-test_no_cpp!(for_simple, 37, br"int main(void) {
+// Note on for loop tests:
+// Because why not, we also want to return mul + counter for these. But 
+// we can't, obviously, because counter is no longer in scope.
+//
+// So instead store it in a temporary 'lc'.
+test_no_cpp!(for_simple, 36, br"int main(void) {
     int mul = 1;
+    int lc;
     for(int counter = 0; counter < 5; counter++) {
         mul *= 2;
+        lc = counter;
     }
-    return mul + counter;
+    return mul + lc;
 }");
 
 test_no_cpp!(for_not_declare, 37, br"int main(void) {
@@ -805,23 +812,29 @@ test_no_cpp!(for_no_expr3, 37, br"int main(void) {
     return mul + counter;
 }");
 
-test_no_cpp!(for_with_break, 11, br"int main(void) {
+// Note: I really didn't want to think about the correct value for some of
+// these for tests and so I just ran them with gcc.
+test_no_cpp!(for_with_break, 19, br"int main(void) {
     int mul = 1;
+    int lc;
     for(int counter = 0; counter < 5; counter++) {
         mul *= 2;
 
+        lc = counter;
         if(counter >= 3) break;
     }
-    return mul + counter;
+    return mul + lc;
 }");
 
 // Something kind of cool: We don't need to manually increment the counter
 // in the 'continue' branch of this test. That's the power of for loops!
-test_no_cpp!(for_with_continue, 13, br"int main(void) {
+test_no_cpp!(for_with_continue, 12, br"int main(void) {
     int mul = 1;
+    int lc;
     for(int counter = 0; counter < 5; counter++) {
         if(counter < 2) continue;
         mul *= 2;
+        lc = counter;
     }
-    return mul + counter;
+    return mul + lc;
 }");
