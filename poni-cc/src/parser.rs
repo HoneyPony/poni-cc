@@ -585,15 +585,18 @@ impl<R: Read> Parser<R> {
                 // Break jumps to the end of the switch statement.
                 self.current_break = Some(label_end);
 
-                // For now, we will pretend like switches need to be braced. It's
-                // possible that they really should be any statement, but w/e
-                // for now.
+                // Switch is a little weird in that it is literally followed
+                // by a single statement.
+                //
+                // This means that `case 0: x = 5;`, for example, is a single
+                // statement.
+                //
+                // If we want to support C23 properly, we also want to treat
+                // `case 0: int x = 5;` as a single statement, although I likely
+                // won't bother for now.
                 let mut code = Vec::new();
-                self.expect(ctx, TokenType::LBrace);
-                while !matches!(self.next_token, TokenType::RBrace | TokenType::Eof) {
-                    self.block_item(ctx, &mut code);
-                }
-                self.expect(ctx, TokenType::RBrace);
+                // Parse that single statement.
+                self.statement(ctx, &mut code);
 
                 // Now that we have all the cases, we can generate the jump
                 // table.
@@ -653,6 +656,10 @@ impl<R: Read> Parser<R> {
 
                 // Now we can jump to this label.
                 into.push(Instr::Label(label));
+
+                // Now we must recurse into another statement. This is so that
+                // e.g. switch(123) case 1: x = 5; is a valid program.
+                self.statement(ctx, into);
             }
             TokenType::Default => {
                 self.expect(ctx, TokenType::Default);
@@ -668,6 +675,9 @@ impl<R: Read> Parser<R> {
 
                 cases.seen_default = true;
                 into.push(Instr::Label(cases.default_label));
+
+                // Same as with case.
+                self.statement(ctx, into);
             }
             // Label
             TokenType::Identifier(label) if matches!(self.next_token_two, TokenType::Colon) => {
@@ -695,6 +705,10 @@ impl<R: Read> Parser<R> {
                     // If we're inserting it it's definitely defined
                     .or_insert_with(|| (ctx.label("c"), true));
                 into.push(Instr::Label(ir_label));
+
+                // To follow the C grammar, we actually want to treat this as
+                // one statement, and recurse into another statement.
+                self.statement(ctx, into);
             }
             TokenType::Goto => {
                 self.expect(ctx, TokenType::Goto); // Eat goto

@@ -1213,3 +1213,12 @@ test_no_cpp!(switch_default_v3, 8, br"int main(void) {
 
     return value;
 }");
+
+// It's valid to have a bunch of labels in a row inside a switch statement
+// (or on any statement, really, but case: and default: are only valid inside
+// switch).
+test_no_cpp!(labeled_statement, 0, br"int main(void) {
+    int a = 1;
+    switch(a) hello: case 2: case 4: goodbye: default: a = 2;
+    return 0;
+}");
