@@ -112,6 +112,18 @@ impl<R: Read> Parser<R> {
         None
     }
 
+    fn lookup_var_in_current_scope(&self, var_name: StrKey) -> Option<Var> {
+        // NOTE: In theory we could "optimize" this in that we know we always
+        // have a last so there's no need for the match. I'm not sure that
+        // really matters.
+        if let Some(scope) = self.variables.last() {
+            scope.map.get(&var_name).copied()
+        }
+        else {
+            None
+        }
+    }
+
     /// This function is currently unused. The idea is still something I want
     /// to come back to though: Basically, where possible, re-use existing
     /// variables when we're generating IR. This should result in many fewer
@@ -195,7 +207,7 @@ impl<R: Read> Parser<R> {
 
             // In the future, this will have to parse a whole type somehow...
             let var_name = self.expect_id(ctx);
-            if self.lookup_var(var_name).is_some() {
+            if self.lookup_var_in_current_scope(var_name).is_some() {
                 panic!("duplicate variable '{}'", ctx.get(&var_name, &mut [0; 8]));
             }
 
@@ -322,6 +334,21 @@ impl<R: Read> Parser<R> {
                 into.push(Instr::Jump(ir_label));
 
                 self.expect(ctx, TokenType::Semicolon);
+            }
+            TokenType::LBrace => {
+                self.expect(ctx, TokenType::LBrace);
+                self.variables.push(VarScope::new());
+                loop {
+                    if matches!(self.next_token, TokenType::RBrace | TokenType::Eof) { break; }
+
+                    // It is important to use block_item() and not statement()
+                    // here.
+                    self.block_item(ctx, into);
+                }
+                self.variables.pop();
+                self.expect(ctx, TokenType::RBrace);
+
+                // Don't expect semicolon.
             }
             _ => {
                 self.expression(ctx, into);
@@ -664,7 +691,7 @@ impl<R: Read> Parser<R> {
                 result
             }
             _ => {
-                panic!("expected expression");
+                panic!("expected expression, got '{}'", self.next_token.to_str_const());
             }
         }
     }

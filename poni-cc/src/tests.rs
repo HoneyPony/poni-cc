@@ -643,3 +643,20 @@ backward:
     if(a < 31) goto backward;
     return a;
 }");
+
+test_no_cpp!(block_simple, 42, br"int main(void) {
+    int sum = 0;
+    int x = 30;
+    {
+        int x = 5;
+        sum += x;
+        {
+            int x = 2;
+            sum += x;
+        }
+        sum += x;
+    }
+    sum += x;
+
+    return sum;
+}");
