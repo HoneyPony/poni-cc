@@ -36,7 +36,8 @@ pub enum TokenType {
 
     Goto,
 
-    For, Do, While, Switch,
+    For, Do, While,
+    Switch, Case, Default,
     Break, Continue,
 
     Return,
@@ -108,6 +109,8 @@ impl TokenType {
             TokenType::Do => "'do'",
             TokenType::While => "'while'",
             TokenType::Switch => "'switch'",
+            TokenType::Case => "'case'",
+            TokenType::Default => "'default'",
             TokenType::Break => "'break'",
             TokenType::Continue => "'continue'",
             TokenType::LParen => "'('",
@@ -239,6 +242,8 @@ impl<R: Read> Lexer<R> {
                 (StrKey::from_known_bytes(b"do"), TokenType::Do),
                 (StrKey::from_known_bytes(b"while"), TokenType::While),
                 (StrKey::from_known_bytes(b"switch"), TokenType::Switch),
+                (StrKey::from_known_bytes(b"case"), TokenType::Case),
+                (StrKey::from_known_bytes(b"default"), TokenType::Default),
                 (StrKey::from_known_bytes(b"break"), TokenType::Break),
                 (strkey_continue, TokenType::Continue),
             ]

@@ -16,7 +16,7 @@
 //! code from other applications. I'm not sure exactly how that should fit in;
 //! perhaps the Parser calls into something else..?
 
-use std::{io::Read};
+use std::io::Read;
 
 use ahash::HashMap;
 use rustc_hash::FxHashMap;
@@ -43,6 +43,31 @@ impl VarScope {
     }
 }
 
+struct SwitchCases {
+    /// Map of integer constants to labels. Note that we will likely need to
+    /// change the structure of these in the future when we have more integer
+    /// types.
+    cases: HashMap<StrKey, Label>,
+    /// Whether we have seen the default: case. If we have, then the switch
+    /// statement should not put the label at the end. If we have not, the
+    /// label should go at the end.
+    seen_default: bool,
+
+    /// The Label used for the default case. Stored here just so there's a little
+    /// less enclosing_ juggling.
+    default_label: Label,
+}
+
+impl SwitchCases {
+    fn new(default_label: Label) -> Self {
+        SwitchCases {
+            cases: HashMap::default(),
+            seen_default: false,
+            default_label,
+        }
+    }
+}
+
 pub struct Parser<R: Read> {
     next_token: TokenType,
     next_token_two: TokenType,
@@ -60,6 +85,8 @@ pub struct Parser<R: Read> {
     /// The Label, if any, that 'break' should jump to. Updated when we
     /// parse/finish parsing a loop or switch.
     current_break: Option<Label>,
+
+    current_cases: Option<SwitchCases>,
 }
 
 impl<R: Read> Parser<R> {
@@ -74,6 +101,8 @@ impl<R: Read> Parser<R> {
 
             current_continue: None,
             current_break: None,
+
+            current_cases: None,
         };
 
         // Prime the parser so it has a legit token.
@@ -524,6 +553,121 @@ impl<R: Read> Parser<R> {
                 self.current_continue = enclosing_continue;
 
                 self.variables.pop();
+            }
+            TokenType::Switch => {
+                self.expect(ctx, TokenType::Switch);
+
+                // For now, the way I'm going to do this is as follows:
+                // - Collect instructions into a separate Vec<Instr>
+                // - Generate the dispatch table at the top, in an O(n) search
+                //
+                // This avoids the extra jump down to a dispatch table at the
+                // bottom, at the cost of having to buffer the switch statement
+                // code in a separate Vec<> for a while.
+                //
+                // (One thing we could consider is, instead of appending the
+                // Vec to build it up, instead build up a Vec-of-Vecs or other
+                // sort of list of Vecs so that we don't need any additional
+                // big copies. But hopefully it won't be too bad in practice.)
+
+                self.expect(ctx, TokenType::LParen);
+                let expr = self.expression(ctx, into);
+                self.expect(ctx, TokenType::RParen);
+
+                let label_default = ctx.label("switch_d");
+                let label_end = ctx.label("switch_e");
+
+                // Collect the code into a separate vec.
+                let enclosing_cases = self.current_cases.take();
+                let enclosing_break = self.current_break;
+
+                self.current_cases = Some(SwitchCases::new(label_default));
+                // Break jumps to the end of the switch statement.
+                self.current_break = Some(label_end);
+
+                // For now, we will pretend like switches need to be braced. It's
+                // possible that they really should be any statement, but w/e
+                // for now.
+                let mut code = Vec::new();
+                self.expect(ctx, TokenType::LBrace);
+                while !matches!(self.next_token, TokenType::RBrace | TokenType::Eof) {
+                    self.block_item(ctx, &mut code);
+                }
+                self.expect(ctx, TokenType::RBrace);
+
+                // Now that we have all the cases, we can generate the jump
+                // table.
+                let cases = self.current_cases.take().unwrap();
+                // We need a separate temporary from our controlling expression
+                // for the binary ops.
+                //
+                // (It would, of course, be ideal to just directly generate
+                // the comparison instructions. Maybe in the future...)
+                let dst = ctx.tmp();
+                for (const_val, label) in cases.cases {
+                    into.push(Instr::Binary {
+                        op: BinaryOp::Equal,
+                        dst: dst.0,
+                        lhs: expr,
+                        rhs: Val::Constant(const_val)
+                    });
+
+                    // Jump to this label if the comparison succeeded.
+                    into.push(Instr::JumpIfNotZero { condition: dst.0.clone().into(), target: label })
+                }
+                // If we didn't jump to any label, jump to the default one.
+                into.push(Instr::Jump(label_default));
+
+                // Append the code to ourselves.
+                into.append(&mut code);
+
+                // If there wasn't a default label, put it at the end.
+                if !cases.seen_default {
+                    into.push(Instr::Label(label_default));
+                }
+                into.push(Instr::Label(label_end));
+
+                self.current_cases = enclosing_cases;
+                self.current_break = enclosing_break;
+            }
+            TokenType::Case => {
+                self.expect(ctx, TokenType::Case);
+
+                // TODO: We will need constant folding for this to work
+                // completely correctly.
+                let value = self.expression(ctx, into);
+                let Val::Constant(c) = value else {
+                    panic!("expression of case must be a constant");
+                };
+
+                self.expect(ctx, TokenType::Colon);
+
+                let Some(cases) = self.current_cases.as_mut() else {
+                    panic!("case must be inside a switch statement");
+                };
+
+                let label = ctx.label("case");
+                if cases.cases.insert(c, label).is_some() {
+                    panic!("duplicate case '{}'", ctx.get(&c, &mut [0; 8]));
+                }
+
+                // Now we can jump to this label.
+                into.push(Instr::Label(label));
+            }
+            TokenType::Default => {
+                self.expect(ctx, TokenType::Default);
+                self.expect(ctx, TokenType::Colon);
+
+                let Some(cases) = self.current_cases.as_mut() else {
+                    panic!("default must be inside a switch statement");
+                }; 
+
+                if cases.seen_default {
+                    panic!("duplicate default in switch");
+                }
+
+                cases.seen_default = true;
+                into.push(Instr::Label(cases.default_label));
             }
             // Label
             TokenType::Identifier(label) if matches!(self.next_token_two, TokenType::Colon) => {
