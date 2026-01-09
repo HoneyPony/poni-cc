@@ -1105,3 +1105,111 @@ test_no_cpp!(switch_nodefault_oob3, 17, br"int main(void) {
 
     return value;
 }");
+
+test_no_cpp!(switch_default_v0, 100, br"int main(void) {
+    int chooser = 12341234;
+    int value = 17;
+
+    switch(chooser + 2 + 3) {
+    default:
+        value = 18;
+    case 0:
+        value = 100;
+        break;
+    case 1:
+        value += 20;
+    case 2:
+        value += 30;
+        break;
+    case 3:
+        value = 15;
+    case 4:
+        value = 22;
+        break;
+    case 5:
+        value = 3;
+    }
+
+    return value;
+}");
+
+test_no_cpp!(switch_default_v1, 18, br"int main(void) {
+    int chooser = 12341234;
+    int value = 17;
+
+    switch(chooser + 2 + 3) {
+    default:
+        value = 18;
+        break;
+    case 0:
+        value = 100;
+        break;
+    case 1:
+        value += 20;
+    case 2:
+        value += 30;
+        break;
+    case 3:
+        value = 15;
+    case 4:
+        value = 22;
+        break;
+    case 5:
+        value = 3;
+    }
+
+    return value;
+}");
+
+test_no_cpp!(switch_default_v2, 67, br"int main(void) {
+    int chooser = 12341234;
+    int value = 17;
+
+    switch(chooser + 2 + 3) {
+    case 0:
+        value = 100;
+        break;
+    case 1:
+    default:
+        value += 20;
+    case 2:
+        value += 30;
+        break;
+    case 3:
+        value = 15;
+    case 4:
+        value = 22;
+        break;
+    case 5:
+        value = 3;
+    }
+
+    return value;
+}");
+
+test_no_cpp!(switch_default_v3, 8, br"int main(void) {
+    int chooser = 12341234;
+    int value = 17;
+
+    switch(chooser + 2 + 3) {
+    case 0:
+        value = 100;
+        break;
+    case 1:
+        value += 20;
+    case 2:
+        value += 30;
+        break;
+    case 3:
+        value = 15;
+    case 4:
+        value = 22;
+        break;
+    case 5:
+        value = 3;
+    default:
+        value = 8;
+    }
+
+    return value;
+}");
