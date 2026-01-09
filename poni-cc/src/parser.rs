@@ -384,9 +384,13 @@ impl<R: Read> Parser<R> {
                 self.current_continue = enclosing_continue;
             }
             TokenType::Do => {
+                // Do-while is a little tricky because continue can't jump
+                // to the beginning of the loop, it has to jump to the conditional
+                // expression.
                 self.expect(ctx, TokenType::Do);
 
                 let begin_loop = ctx.label("do_b");
+                let continue_loop = ctx.label("do_c");
                 let end_loop = ctx.label("do_e");
 
                 // I should maybe consider breaking these into helper functions
@@ -395,8 +399,8 @@ impl<R: Read> Parser<R> {
 
                 // Break goes to the end of the loop
                 self.current_break = Some(end_loop);
-                // Continue goes back to the begin of the loop
-                self.current_continue = Some(begin_loop);
+                // Continue goes to the conditional expression.
+                self.current_continue = Some(continue_loop);
 
                 into.push(Instr::Label(begin_loop));
 
@@ -406,6 +410,7 @@ impl<R: Read> Parser<R> {
                 self.expect(ctx, TokenType::While);
                 self.expect(ctx, TokenType::LParen);
 
+                into.push(Instr::Label(continue_loop));
                 // Parse condition.
                 let condition = self.expression(ctx, into);
                 // Push the JumpIfNotZero instruction. If the condition is
