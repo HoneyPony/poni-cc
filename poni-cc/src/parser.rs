@@ -369,6 +369,46 @@ impl<R: Read> Parser<R> {
                 self.current_break = enclosing_break;
                 self.current_continue = enclosing_continue;
             }
+            TokenType::Do => {
+                self.expect(ctx, TokenType::Do);
+
+                let begin_loop = ctx.label("do_b");
+                let end_loop = ctx.label("do_e");
+
+                // I should maybe consider breaking these into helper functions
+                let enclosing_break = self.current_break;
+                let enclosing_continue = self.current_continue;
+
+                // Break goes to the end of the loop
+                self.current_break = Some(end_loop);
+                // Continue goes back to the begin of the loop
+                self.current_continue = Some(begin_loop);
+
+                into.push(Instr::Label(begin_loop));
+
+                // Parse loop body.
+                self.statement(ctx, into);
+
+                self.expect(ctx, TokenType::While);
+                self.expect(ctx, TokenType::LParen);
+
+                // Parse condition.
+                let condition = self.expression(ctx, into);
+                // Push the JumpIfNotZero instruction. If the condition is
+                // a known constant zero, don't bother.
+                if !matches!(condition, Val::Constant(c) if c == ctx.zero()) {
+                    into.push(Instr::JumpIfNotZero { condition, target: begin_loop });
+                }
+
+                // End of loop.
+                into.push(Instr::Label(end_loop));
+
+                self.expect(ctx, TokenType::RParen);
+                self.expect(ctx, TokenType::Semicolon);
+
+                self.current_break = enclosing_break;
+                self.current_continue = enclosing_continue;
+            }
             // Label
             TokenType::Identifier(label) if matches!(self.next_token_two, TokenType::Colon) => {
                 // Eat the id and the colon

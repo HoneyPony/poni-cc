@@ -697,3 +697,61 @@ test_no_cpp!(while_with_continue, 13, br"int main(void) {
     }
     return mul + counter;
 }");
+
+test_no_cpp!(dowhile_simple, 37, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    do {
+        mul *= 2;
+        counter++;
+    } while(counter < 5);
+    return mul + counter;
+}");
+
+test_no_cpp!(dowhile_once, 3, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    do {
+        mul *= 2;
+        counter++;
+    } while(0);
+    return mul + counter;
+}");
+
+test_no_cpp!(dowhile_once_var, 3, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    int zero = 0;
+    do {
+        mul *= 2;
+        counter++;
+    } while(zero);
+    return mul + counter;
+}");
+
+test_no_cpp!(dowhile_with_break, 11, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    do {
+        mul *= 2;
+        counter++;
+
+        if(counter >= 3) break;
+    } while(counter < 5);
+    return mul + counter;
+}");
+
+test_no_cpp!(dowhile_with_continue, 13, br"int main(void) {
+    int counter = 0;
+    int mul = 1;
+    do {
+        if(counter < 2) {
+            ++counter;
+            continue;
+        }
+
+        mul *= 2;
+        counter++;
+    } while(counter < 5);
+    return mul + counter;
+}");
