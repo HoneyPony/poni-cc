@@ -640,6 +640,6 @@ test_no_cpp!(goto_back, 47, br"int main(void) {
 backward:
     if(flag) a += 17;
     flag = 1;
-    if(!flag) goto backward;
+    if(a < 31) goto backward;
     return a;
 }");
